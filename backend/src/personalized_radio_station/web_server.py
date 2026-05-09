@@ -44,9 +44,7 @@ FRONTEND_FILES = {
     "colors_and_type.css",
     "landing.html",
     "styles.css",
-    "stations.js",
     "radio.jsx",
-    "radio_test.html",
 }
 
 
@@ -305,6 +303,7 @@ class EpisodeService:
                 if payload.get("replace_rss_feeds")
                 else _dedupe_strings([*DEFAULT_RSS_FEEDS, *payload_rss_feeds])
             )
+            source_topics = topics or _topics_from_rss_feeds(rss_feeds)
 
             sources = {
                 "mode": "mock",
@@ -321,7 +320,7 @@ class EpisodeService:
                         "source": "Mock Wire",
                         "title": f"{topic.title()} gets a useful development",
                     }
-                    for topic in topics
+                    for topic in source_topics
                 ],
             }
             (job.output_dir / "sources.json").write_text(
@@ -336,7 +335,7 @@ class EpisodeService:
                 style,
                 duration,
                 weather_name,
-                topics,
+                source_topics,
                 host_format=_clean_host_format(payload.get("host_format")),
             )
             self._prepare_public_segments(job, episode)
@@ -525,10 +524,7 @@ def serve(
     )
     address, actual_port = server.server_address
     print(f"[vibefm] API listening on http://{address}:{actual_port}", flush=True)
-    print(
-        "[vibefm] Demo mode is free; real mode uses configured model and TTS APIs.",
-        flush=True,
-    )
+    print("[vibefm] Real episodes use configured model and TTS APIs.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -932,8 +928,26 @@ def _path_parts(path: str) -> list[str]:
     return [unquote(part) for part in path.strip("/").split("/") if part]
 
 
+def _resolve_under(root: Path, parts: list[str], default: str) -> Path | None:
+    if not parts:
+        candidate = (root / default).resolve()
+    else:
+        candidate = (root / Path(*parts)).resolve()
+    try:
+        candidate.relative_to(root.resolve())
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
 def _frontend_path(path: str) -> Path | None:
     parts = _path_parts(path)
+    dist_dir = FRONTEND_ROOT / "dist"
+    if dist_dir.is_dir():
+        return _resolve_under(dist_dir, parts, default="index.html")
+
     if not parts:
         return FRONTEND_ROOT / FRONTEND_ENTRY
     if parts == ["index.html"]:
@@ -967,6 +981,15 @@ def _clean_topics(value: Any, fallback: list[str] | None = None) -> list[str]:
     return topics[:5] or default_topics
 
 
+def _topics_from_rss_feeds(rss_feeds: list[str]) -> list[str]:
+    topics: list[str] = []
+    for feed_url in rss_feeds:
+        host = urlparse(feed_url).netloc.lower().removeprefix("www.")
+        if host:
+            topics.append(host)
+    return _dedupe_strings(topics)[:5]
+
+
 def _episode_payload_from_vibe(payload: dict[str, Any], vibe: Vibe) -> dict[str, Any]:
     merged = dict(payload)
     merged.update(
@@ -975,6 +998,8 @@ def _episode_payload_from_vibe(payload: dict[str, Any], vibe: Vibe) -> dict[str,
             "station_name": vibe.name,
             "style": host_style(vibe.tone, vibe.voice_gender, vibe.host_format),
             "rss_feeds": vibe.rss_feeds,
+            "replace_topics": True,
+            "replace_rss_feeds": True,
             "host_tone": vibe.tone,
             "voice_gender": vibe.voice_gender,
             "host_format": vibe.host_format,

@@ -1,14 +1,6 @@
 /* global React, ReactDOM */
 const { useState, useEffect, useRef } = React;
 
-const DEFAULT_STATIONS = [
-  { id: 1, name: "DEEP FOCUS",   tag: "ambient lab loops",        mhz: 88.3,  hosts: 1, voiceA: "F", voiceB: "M", tone: 25, urls: ["https://pitchfork.com/rss/news", "https://thequietus.com/feed"], length: 30, freq: "daily" },
-  { id: 2, name: "LOFI MEMORY",  tag: "nostalgic recompositions", mhz: 91.4,  hosts: 2, voiceA: "M", voiceB: "F", tone: 40, urls: ["https://stereogum.com/feed"], length: 45, freq: "daily" },
-  { id: 3, name: "SOLAR DRIFT",  tag: "sun-warmed synthwave",     mhz: 94.7,  hosts: 1, voiceA: "M", voiceB: "M", tone: 15, urls: ["https://feeds.bbci.co.uk/news/rss.xml", "https://www.theverge.com/rss/index.xml", "https://hnrss.org/frontpage"], length: 60, freq: "continuous" },
-  { id: 4, name: "NIGHTCREW",    tag: "midnight conversations",   mhz: 101.2, hosts: 2, voiceA: "M", voiceB: "M", tone: 75, urls: ["https://feeds.npr.org/1001/rss.xml"], length: 60, freq: "daily" },
-  { id: 5, name: "LONG WAVE",    tag: "drone meditation",         mhz: 106.8, hosts: 1, voiceA: "N", voiceB: "M", tone: 10, urls: ["https://long-wave.fm/feed"], length: 30, freq: "hourly" },
-];
-
 const FREQ_MIN = 88.0;
 const FREQ_MAX = 108.0;
 
@@ -19,6 +11,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
 const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8765";
 const SAVED_FREQUENCIES = [88.3, 91.4, 94.7, 98.1, 101.2, 104.6, 106.8, 107.6];
 const PLAYER_ACTIVE_STATES = new Set(["starting", "generating", "playing"]);
+const APP_MODE = "real";
 
 function defaultApiBase() {
   if (window.location.protocol === "http:" || window.location.protocol === "https:") {
@@ -119,12 +112,22 @@ function styleFromStation(station) {
   return `${toneStyle}; ${voiceLabel}; ${hostLabel}`;
 }
 
-function episodePayloadFromStation(station, mode, durationSeconds) {
+function rssFeedsFromStation(station, sourcePresets) {
+  const selected = new Set(station.sourcePresetIds || []);
+  const presetUrls = (sourcePresets || [])
+    .filter((preset) => selected.has(preset.id))
+    .map((preset) => preset.url);
+  return Array.from(new Set([...presetUrls, ...(station.urls || [])]));
+}
+
+function episodePayloadFromStation(station, mode, durationSeconds, sourcePresets) {
   const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
   if (station.backendId) {
     return {
       mode,
       vibe_id: station.backendId,
+      replace_topics: true,
+      replace_rss_feeds: true,
       duration: `${durationMinutes} minutes`,
       duration_minutes: durationMinutes,
     };
@@ -135,7 +138,9 @@ function episodePayloadFromStation(station, mode, durationSeconds) {
     mode,
     station_name: vibe.name,
     style: styleFromStation(station),
-    rss_feeds: vibe.custom_rss_feeds,
+    rss_feeds: rssFeedsFromStation(station, sourcePresets),
+    replace_topics: true,
+    replace_rss_feeds: true,
     source_preset_ids: vibe.source_preset_ids,
     host_tone: vibe.tone,
     voice_gender: vibe.voice_gender,
@@ -462,7 +467,36 @@ function RssChips({ value, onChange, placeholder }) {
   );
 }
 
-function StationsTab({ stations, selected, onSelect, onChange, onCreate, onDelete }) {
+function SourcePresets({ presets, value, onChange }) {
+  const selected = new Set(value || []);
+  const toggle = (id) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange((presets || []).filter((preset) => next.has(preset.id)).map((preset) => preset.id));
+  };
+
+  return (
+    <div className="source-presets">
+      {(presets || []).map((preset) => {
+        const active = selected.has(preset.id);
+        return (
+          <button
+            key={preset.id}
+            type="button"
+            className={"source-chip" + (active ? " active" : "")}
+            onClick={() => toggle(preset.id)}
+          >
+            <span className="source-dot" />
+            <span>{preset.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function StationsTab({ stations, selected, sourcePresets, onSelect, onChange, onNew, onDelete }) {
   const update = (k, v) => onChange({ ...selected, [k]: v });
   return (
     <div className="stations-tab">
@@ -471,7 +505,8 @@ function StationsTab({ stations, selected, onSelect, onChange, onCreate, onDelet
         <div className="vp-select-wrap">
           <select className="vp-select"
                   value={selected ? selected.id : ""}
-                  onChange={(e) => onSelect(Number(e.target.value))}>
+                  onChange={(e) => onSelect(e.target.value)}>
+            {stations.length === 0 && <option value="">NO VIBES</option>}
             {stations.map((s, i) => (
               <option key={s.id} value={s.id}>
                 {pad2(i + 1)} — {s.name} · {s.hosts}H
@@ -480,11 +515,11 @@ function StationsTab({ stations, selected, onSelect, onChange, onCreate, onDelet
           </select>
           <span className="vp-caret">▾</span>
         </div>
-        <button className="vp-new" onClick={onCreate}>+ NEW</button>
+        <button className="vp-new" onClick={onNew}>+ NEW</button>
       </div>
 
       {!selected ? (
-        <div className="station-edit empty">No vibe selected.</div>
+        <div className="station-edit empty">NO VIBES SAVED</div>
       ) : (
         <div className="station-edit">
           <div className="edit-grid">
@@ -495,9 +530,18 @@ function StationsTab({ stations, selected, onSelect, onChange, onCreate, onDelet
                        onChange={(e) => update("name", e.target.value.toUpperCase())} />
               </div>
               <div className="field grow-2">
-                <label>RSS · {(selected.urls || []).length}</label>
+                <label>CUSTOM RSS · {(selected.urls || []).length}</label>
                 <RssChips value={selected.urls} onChange={(v) => update("urls", v)} />
               </div>
+            </div>
+
+            <div className="field">
+              <label>SOURCES</label>
+              <SourcePresets
+                presets={sourcePresets}
+                value={selected.sourcePresetIds}
+                onChange={(v) => update("sourcePresetIds", v)}
+              />
             </div>
 
             <div className="row">
@@ -539,16 +583,23 @@ function StationsTab({ stations, selected, onSelect, onChange, onCreate, onDelet
   );
 }
 
-function CreateVibeTab({ onCreate }) {
+function CreateVibeTab({ sourcePresets, onCreate }) {
   const [name, setName] = useState("");
   const [hosts, setHosts] = useState(1);
   const [voiceA, setVoiceA] = useState("F");
   const [voiceB, setVoiceB] = useState("M");
   const [tone, setTone] = useState("casual");
   const [urls, setUrls] = useState([]);
+  const [sourcePresetIds, setSourcePresetIds] = useState([]);
+  const [presetTouched, setPresetTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const valid = name.trim().length > 0 && !saving;
+
+  useEffect(() => {
+    if (presetTouched || sourcePresetIds.length > 0) return;
+    setSourcePresetIds((sourcePresets || []).map((preset) => preset.id));
+  }, [presetTouched, sourcePresetIds.length, sourcePresets]);
 
   const submit = async () => {
     if (!valid) return;
@@ -560,9 +611,12 @@ function CreateVibeTab({ onCreate }) {
         hosts, voiceA, voiceB,
         tone: tone === "casual" ? 25 : 75,
         urls,
+        sourcePresetIds,
         freq: "on-demand",
       });
       setName(""); setUrls([]); setHosts(1); setVoiceA("F"); setVoiceB("M"); setTone("casual");
+      setSourcePresetIds((sourcePresets || []).map((preset) => preset.id));
+      setPresetTouched(false);
     } catch (error) {
       console.error(error);
     } finally {
@@ -580,9 +634,21 @@ function CreateVibeTab({ onCreate }) {
                    placeholder="E.G. MORNING BRIEF" />
           </div>
           <div className="field grow-2">
-            <label>RSS · {urls.length}</label>
+            <label>CUSTOM RSS · {urls.length}</label>
             <RssChips value={urls} onChange={setUrls} />
           </div>
+        </div>
+
+        <div className="field">
+          <label>SOURCES</label>
+          <SourcePresets
+            presets={sourcePresets}
+            value={sourcePresetIds}
+            onChange={(v) => {
+              setPresetTouched(true);
+              setSourcePresetIds(v);
+            }}
+          />
         </div>
 
         <div className="row">
@@ -623,7 +689,7 @@ function CreateVibeTab({ onCreate }) {
   );
 }
 
-function ApiTab({ apiBase, onApiBaseChange, mode, onModeChange, apiStatus }) {
+function ApiTab({ apiBase, onApiBaseChange, apiStatus }) {
   return (
     <div className="simple-tab">
       <div className="api-grid">
@@ -633,9 +699,7 @@ function ApiTab({ apiBase, onApiBaseChange, mode, onModeChange, apiStatus }) {
         </div>
         <div className="field">
           <label>Mode</label>
-          <Segmented value={mode}
-                     options={[["mock", "Demo"], ["real", "Real"]]}
-                     onChange={onModeChange} />
+          <div className="mode-pill">REAL</div>
         </div>
         <div className={"api-status " + apiStatus}>
           <span className="api-dot" />
@@ -701,7 +765,7 @@ function AboutTab() {
       <div className="about-row"><span>MODEL</span><span>VibeFM / MK II</span></div>
       <div className="about-row"><span>SERIAL</span><span>SN-7042-3081</span></div>
       <div className="about-row"><span>FIRMWARE</span><span>2.1.4 (stable)</span></div>
-      <div className="about-row"><span>STATIONS</span><span>5 / 12 max</span></div>
+      <div className="about-row"><span>VIBES</span><span>API STORED</span></div>
       <div className="about-row"><span>UPTIME</span><span>14d 03h 22m</span></div>
       <div className="about-row"><span>STORAGE</span><span>2.4 / 8.0 GB</span></div>
       <p className="about-foot">VibeFM — personal AI radio. Built for one listener.</p>
@@ -728,8 +792,8 @@ function SettingsPanel(props) {
         </div>
       </div>
       <div className="settings-body">
-        {tab === "vibes"  && <StationsTab {...props} />}
-        {tab === "create" && <CreateVibeTab onCreate={props.onCreate} />}
+        {tab === "vibes"  && <StationsTab {...props} onNew={() => setTab("create")} />}
+        {tab === "create" && <CreateVibeTab sourcePresets={props.sourcePresets} onCreate={props.onCreate} />}
         {tab === "api"    && <ApiTab {...props} />}
       </div>
     </div>
@@ -741,18 +805,15 @@ function App() {
   const [freqMHz, setFreqMHz] = useState(88.3);
   const [durationSec, setDurationSec] = useState(2 * 60);
   const [remainingSec, setRemainingSec] = useState(0);
-  const [stations, setStations] = useState(DEFAULT_STATIONS);
-  const [editingId, setEditingId] = useState(DEFAULT_STATIONS[0].id);
+  const [stations, setStations] = useState([]);
+  const [editingId, setEditingId] = useState("");
+  const [sourcePresets, setSourcePresets] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [apiBase, setApiBase] = useState(() => {
     try { return localStorage.getItem("vibefm.apiBase") || defaultApiBase(); }
     catch { return defaultApiBase(); }
   });
   const [apiStatus, setApiStatus] = useState("checking");
-  const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem("vibefm.mode") || "mock"; }
-    catch { return "mock"; }
-  });
   const [playerState, setPlayerState] = useState("idle");
   const [playerText, setPlayerText] = useState("STANDBY");
   const [segmentProgress, setSegmentProgress] = useState({ queued: 0, played: 0, total: 0 });
@@ -773,8 +834,8 @@ function App() {
     const d = Math.abs(s.mhz - freqMHz);
     if (d < closestDist) { closestDist = d; closestIdx = i; }
   });
-  const tuned = closestDist < 0.4;
-  const station = stations[closestIdx] || stations[0];
+  const station = stations[closestIdx] || null;
+  const tuned = Boolean(station) && closestDist < 0.4;
 
   useEffect(() => {
     if (!playing) return;
@@ -794,14 +855,14 @@ function App() {
         if (resolvedApiBase !== cleanApiBase(apiBase)) {
           setApiBase(resolvedApiBase);
         }
+        const presets = Array.isArray(data.presets) ? data.presets : [];
         const saved = Array.isArray(data.vibes)
           ? data.vibes.map((vibe, index) => stationFromVibe(vibe, index))
           : [];
-        if (saved.length > 0) {
-          setStations(saved);
-          setEditingId(saved[0].id);
-          setFreqMHz(saved[0].mhz);
-        }
+        setSourcePresets(presets);
+        setStations(saved);
+        setEditingId(saved[0]?.id || "");
+        if (saved[0]) setFreqMHz(saved[0].mhz);
         setApiStatus("ready");
       } catch (error) {
         if (!alive) return;
@@ -813,11 +874,6 @@ function App() {
       clearTimeout(id);
     };
   }, [apiBase]);
-
-  useEffect(() => {
-    try { localStorage.setItem("vibefm.mode", mode); }
-    catch {}
-  }, [mode]);
 
   useEffect(() => {
     return () => {
@@ -844,10 +900,6 @@ function App() {
     return () => window.removeEventListener("resize", fit);
   }, []);
 
-  const stationStep = (d) => {
-    const next = (closestIdx + d + stations.length) % stations.length;
-    setFreqMHz(stations[next].mhz);
-  };
   const updateStation = (s) => setStations((list) => list.map((x) => x.id === s.id ? { ...s, backendId: null } : x));
   const createStation = async (partial) => {
     const id = Date.now();
@@ -858,13 +910,6 @@ function App() {
       let m = 88.5;
       while (stations.some((s) => Math.abs(s.mhz - m) < 0.6) && m < 107.5) m += 1.0;
       next.mhz = Math.round(m * 10) / 10;
-    }
-
-    if (!partial) {
-      setStations((list) => [...list, next]);
-      setEditingId(id);
-      setFreqMHz(next.mhz);
-      return;
     }
 
     try {
@@ -893,7 +938,7 @@ function App() {
   const deleteStation = (id) => {
     setStations((list) => {
       const next = list.filter((s) => s.id !== id);
-      if (next.length) setEditingId(next[0].id);
+      setEditingId(next[0]?.id || "");
       return next;
     });
   };
@@ -942,6 +987,12 @@ function App() {
       await stopPlayback();
       return;
     }
+    if (!station) {
+      setPlayerState("failed");
+      setPlayerText("NO VIBE");
+      setIsOpen(true);
+      return;
+    }
 
     const stationToPlay = station;
     const selectedDuration = Math.max(60, Math.round(durationSec || 120));
@@ -963,7 +1014,7 @@ function App() {
       const { data: job, apiBase: resolvedApiBase } = await requestJsonFromAnyApi(apiBase, "/api/episodes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(episodePayloadFromStation(stationToPlay, mode, selectedDuration)),
+        body: JSON.stringify(episodePayloadFromStation(stationToPlay, APP_MODE, selectedDuration, sourcePresets)),
       });
       if (!isCurrentRun(runId)) return;
       if (resolvedApiBase !== cleanApiBase(apiBase)) {
@@ -1078,7 +1129,7 @@ function App() {
   const timerDisplay = formatTimerSeconds(playing ? remainingSec : durationSec);
   const transportLabel = playing ? "STOP" : "PLAY";
   const statusLabel = playerText.length > 22 ? `${playerText.slice(0, 21)}...` : playerText;
-  const editing = stations.find((s) => s.id === editingId) || stations[0];
+  const editing = stations.find((s) => s.id === editingId) || stations[0] || null;
 
   return (
     <div className="viewport">
@@ -1121,7 +1172,7 @@ function App() {
               </div>
               <div className="disp-row">
                 <span className="disp-station">
-                  {tuned ? station.name : `${freqMHz.toFixed(1)} FM`}
+                  {tuned ? station.name : station ? `${freqMHz.toFixed(1)} FM` : "NO VIBES"}
                 </span>
                 <span className="disp-time">{timerDisplay}</span>
               </div>
@@ -1154,6 +1205,7 @@ function App() {
 
             <SettingsPanel
               stations={stations}
+              sourcePresets={sourcePresets}
               selected={editing}
               onSelect={setEditingId}
               onChange={updateStation}
@@ -1161,8 +1213,6 @@ function App() {
               onDelete={deleteStation}
               apiBase={apiBase}
               onApiBaseChange={setApiBase}
-              mode={mode}
-              onModeChange={setMode}
               apiStatus={apiStatus}
             />
 
@@ -1174,6 +1224,7 @@ function App() {
             <div className="transport">
               <button className={"play-btn" + (playing ? " active" : "")}
                       type="button"
+                      disabled={!station && !playing}
                       onClick={startEpisode}>
                 {transportLabel}
               </button>

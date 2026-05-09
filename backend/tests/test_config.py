@@ -14,8 +14,13 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(parse_duration("unlimited").label, "unlimited")
 
     def test_example_config_uses_openrouter_gpt_oss_nitro_by_default(self) -> None:
+        example_text = Path("config.example.yaml").read_text()
         config = load_config("config.example.yaml")
 
+        self.assertNotIn("station_name:", example_text)
+        self.assertNotIn("\nduration:", example_text)
+        self.assertNotIn("topics:", example_text)
+        self.assertNotIn("rss_feeds:", example_text)
         self.assertEqual(config.ai.model, "openrouter/openai/gpt-oss-20b:nitro")
         self.assertEqual(config.ai.api_key_env, "OPENROUTER_API_KEY")
         self.assertEqual(config.ai.max_tokens, 4000)

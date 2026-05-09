@@ -16,6 +16,7 @@ INSTALL_DIR="/opt/vibefm"
 
 sudo -u vibefm bash -lc "cd $INSTALL_DIR && git fetch --depth=1 origin $BRANCH && git checkout $BRANCH && git reset --hard origin/$BRANCH"
 sudo -u vibefm bash -lc "cd $INSTALL_DIR/backend && /usr/local/bin/uv sync"
+sudo -u vibefm bash -lc "cd $INSTALL_DIR && pnpm install --frozen-lockfile && pnpm build:frontend"
 sudo systemctl restart vibefm
 sleep 1
 sudo systemctl --no-pager status vibefm | head -8

@@ -32,10 +32,17 @@ if ! command -v caddy >/dev/null 2>&1; then
 	apt-get install -y caddy
 fi
 
-echo "[3/7] uv (skip if already installed)"
+echo "[3/7] uv + node + pnpm (skip if already installed)"
 if ! command -v uv >/dev/null 2>&1; then
 	curl -LsSf https://astral.sh/uv/install.sh | sh
 	install -m 0755 /root/.local/bin/uv /usr/local/bin/uv
+fi
+if ! command -v node >/dev/null 2>&1; then
+	curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+	apt-get install -y nodejs
+fi
+if ! command -v pnpm >/dev/null 2>&1; then
+	npm install -g pnpm
 fi
 
 echo "[4/7] service user + dirs"
@@ -52,8 +59,9 @@ git -C "$INSTALL_DIR" checkout "$BRANCH"
 git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 
-echo "[6/7] install python deps"
+echo "[6/7] install python deps + build frontend"
 sudo -u "$SERVICE_USER" -H bash -lc "cd $INSTALL_DIR/backend && /usr/local/bin/uv sync"
+sudo -u "$SERVICE_USER" -H bash -lc "cd $INSTALL_DIR && pnpm install --frozen-lockfile && pnpm build:frontend"
 
 echo "[7/7] install systemd unit"
 install -m 0644 "$DEPLOY_DIR/vibefm.service" /etc/systemd/system/vibefm.service

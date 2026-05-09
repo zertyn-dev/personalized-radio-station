@@ -855,6 +855,49 @@ body::after {
 }
 .rss-x:hover { background: var(--rust); color: var(--paper); }
 
+.source-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 9px;
+  background: rgba(255,255,255,0.5);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.source-chip:hover {
+  background: rgba(255,255,255,0.75);
+  border-color: var(--rule-strong);
+}
+.source-chip.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.source-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--rust);
+  box-shadow: 0 0 4px rgba(197,72,30,0.45);
+}
+.source-chip.active .source-dot {
+  background: var(--amber);
+}
+
 .field label {
   font-size: 8.5px;
   letter-spacing: 0.28em;
@@ -935,6 +978,21 @@ body::after {
 .seg-btn:last-child { border-right: none; }
 .seg-btn:hover { color: var(--ink); }
 .seg-btn.active { background: var(--ink); color: var(--paper); }
+
+.mode-pill {
+  min-height: 31px;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
 
 .delete-btn {
   background: transparent;
@@ -1138,6 +1196,13 @@ body::after {
   transition: transform 100ms ease-out, background 150ms, box-shadow 100ms;
 }
 .play-btn:hover { background: var(--rust-deep); }
+.play-btn:disabled {
+  background: var(--rule-strong);
+  border-color: var(--rule-strong);
+  color: rgba(255,255,255,0.58);
+  cursor: not-allowed;
+  box-shadow: none;
+}
 .play-btn:active,
 .play-btn.active {
   transform: translateY(2px);

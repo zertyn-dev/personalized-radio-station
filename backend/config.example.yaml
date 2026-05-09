@@ -1,20 +1,15 @@
-station_name: "VibeFM"
-style: "casual, concise morning radio"
-duration: "5 minutes"
+# Backend runtime config.
+#
+# UI-created vibes define station name, RSS sources, host tone, host format,
+# and episode length. Keep this file for provider/model settings and server
+# fallbacks that are not station identity.
 
 news:
   language: "en-US"
   country: "US"
-  topics:
-    - "artificial intelligence"
-    - "startups"
-    - "music technology"
-  rss_feeds:
-    - "https://techcrunch.com/feed/"
-    - "https://www.producthunt.com/feed"
-    - "https://hnrss.org/frontpage"
 
 weather:
+  # Fallback location until the UI sends a listener/station weather location.
   name: "Lisbon"
   latitude: 38.7223
   longitude: -9.1393
@@ -27,12 +22,6 @@ ai:
   reasoning:
     effort: "low"
     exclude: true
-
-voices:
-  intro: "host"
-  weather: "host"
-  news: "host"
-  outro: "host"
 
 tts:
   enabled: true

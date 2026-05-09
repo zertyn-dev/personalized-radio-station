@@ -9,7 +9,7 @@ import threading
 import time
 import unittest
 
-from personalized_radio_station.config import DEFAULT_NEWS_TOPICS, DEFAULT_RSS_FEEDS
+from personalized_radio_station.config import DEFAULT_RSS_FEEDS
 from personalized_radio_station.news import NewsItem
 from personalized_radio_station.weather import WeatherReport
 from personalized_radio_station.web_server import create_server
@@ -247,19 +247,19 @@ tts:
                 self.assertEqual(
                     sources["rss_feeds"],
                     [
-                        *DEFAULT_RSS_FEEDS,
+                        "https://hnrss.org/frontpage",
                         "https://example.com/builders.xml",
                     ],
                 )
                 self.assertEqual(
                     [item["topic"] for item in sources["news"]],
-                    DEFAULT_NEWS_TOPICS,
+                    ["hnrss.org", "example.com"],
                 )
                 self.assertEqual(sources["vibe"]["host_format"], "duo")
                 episode = json.loads(
                     (root / "episodes" / job["episode_id"] / "episode.json").read_text()
                 )
-                self.assertEqual(len(episode["segments"]), 6)
+                self.assertEqual(len(episode["segments"]), 5)
             finally:
                 server.shutdown()
                 server.server_close()

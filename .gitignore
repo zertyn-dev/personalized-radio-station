@@ -4,6 +4,8 @@ __pycache__/
 *.pyc
 *.egg-info/
 .DS_Store
+node_modules/
+frontend/dist/
 config.yaml
 .env
 episodes/*

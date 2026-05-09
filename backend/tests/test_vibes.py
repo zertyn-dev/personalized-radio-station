@@ -52,8 +52,12 @@ class VibeStoreTests(unittest.TestCase):
                 {"name": "Morning Show"}
             )
 
-        self.assertEqual(vibe.source_preset_ids, [])
-        self.assertEqual(vibe.rss_feeds, [])
+        self.assertEqual(
+            vibe.source_preset_ids,
+            ["google_news", "hacker_news", "techcrunch", "product_hunt"],
+        )
+        self.assertEqual(vibe.rss_feeds[0], "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en")
+        self.assertIn("https://hnrss.org/frontpage", vibe.rss_feeds)
 
     def test_rejects_invalid_host_options_and_feed_urls(self) -> None:
         with TemporaryDirectory() as temp_dir:

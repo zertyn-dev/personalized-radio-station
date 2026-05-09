@@ -1,37 +1,1343 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Console-7 — Personal Broadcast</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="colors_and_type.css">
-<link rel="stylesheet" href="styles.css">
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-</head>
-<body>
-<div id="root"></div>
-<script src="stations.js"></script>
-<script type="text/babel" src="radio.jsx"></script>
-<template id="__bundler_thumbnail">
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <rect width="200" height="200" fill="#0e1015"/>
-  <g transform="translate(60,70)">
-    <rect x="0" y="0" width="80" height="60" rx="6" fill="#e8d8b6"/>
-    <rect x="6" y="6" width="35" height="14" rx="2" fill="#1a0e05"/>
-    <circle cx="56" cy="13" r="6" fill="#c5a572"/>
-    <rect x="6" y="26" width="68" height="28" rx="3" fill="#3a2a1a"/>
-    <g fill="#c5a572" opacity="0.7">
-      <circle cx="14" cy="34" r="1"/><circle cx="22" cy="34" r="1"/><circle cx="30" cy="34" r="1"/>
-      <circle cx="38" cy="34" r="1"/><circle cx="46" cy="34" r="1"/><circle cx="54" cy="34" r="1"/>
-      <circle cx="62" cy="34" r="1"/>
-      <circle cx="14" cy="42" r="1"/><circle cx="22" cy="42" r="1"/><circle cx="30" cy="42" r="1"/>
-      <circle cx="38" cy="42" r="1"/><circle cx="46" cy="42" r="1"/><circle cx="54" cy="42" r="1"/>
-      <circle cx="62" cy="42" r="1"/>
-    </g>
-  </g>
-</svg>
-</template>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Console-7 - Personal Broadcast</title>
+    <meta
+      name="description"
+      content="Console-7 is a personal AI radio interface with analog frequency and volume controls."
+    />
+    <link rel="stylesheet" href="/src/tailwind.css" />
+    <style>
+      @font-face {
+        font-family: "Geist";
+        font-weight: 400;
+        font-display: swap;
+        src: url("./fonts/geist-sans/Geist-Regular.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Geist";
+        font-weight: 700;
+        font-display: swap;
+        src: url("./fonts/geist-sans/Geist-Bold.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        font-weight: 400;
+        font-display: swap;
+        src: url("./fonts/plex-mono/IBMPlexMono-Regular.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "IBM Plex Mono";
+        font-weight: 600;
+        font-display: swap;
+        src: url("./fonts/plex-mono/IBMPlexMono-SemiBold.woff2") format("woff2");
+      }
+
+      :root {
+        --paper: #f5e7c6;
+        --brass: #c6aa74;
+        --brass-dark: #80683e;
+        --ink: #121212;
+        --screen: #071d1e;
+        --screen-deep: #020909;
+        --teal: #8fe6d8;
+        --amber: #ffc15d;
+        --rust: #b64a29;
+        --red: #d74d31;
+        --green: #7ebe88;
+      }
+
+      * {
+        box-sizing: border-box;
+        letter-spacing: 0;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
+      body {
+        margin: 0;
+        color: var(--paper);
+        font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+        font-variant-numeric: tabular-nums;
+        background:
+          repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 44px),
+          linear-gradient(135deg, #172021 0%, #111516 48%, #070808 100%);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        pointer-events: none;
+        opacity: 0.12;
+        background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 4px);
+        mix-blend-mode: overlay;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      .console {
+        width: min(1120px, 100%);
+        max-width: 100%;
+        overflow: hidden;
+        border: 1px solid rgba(255, 240, 198, 0.28);
+        border-radius: 8px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.06) 12%, rgba(0, 0, 0, 0.2)),
+          linear-gradient(180deg, #ddc99e 0%, #b89c68 66%, #80683e 100%);
+        box-shadow:
+          0 36px 88px rgba(0, 0, 0, 0.58),
+          0 12px 0 rgba(0, 0, 0, 0.24),
+          inset 0 1px 0 rgba(255, 255, 255, 0.72),
+          inset 0 -2px 0 rgba(43, 30, 16, 0.42);
+      }
+
+      .top-rail,
+      .readout,
+      .black-well {
+        border: 1px solid rgba(0, 0, 0, 0.72);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 48%),
+          linear-gradient(180deg, #1c2020 0%, #090b0b 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+      }
+
+      .panel {
+        min-width: 0;
+        border: 1px solid rgba(42, 29, 15, 0.44);
+        border-radius: 8px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.07) 30%, rgba(50, 34, 17, 0.15)),
+          #c8ae79;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.55),
+          inset 0 -1px 0 rgba(42, 29, 15, 0.28),
+          0 8px 18px rgba(31, 22, 11, 0.22);
+      }
+
+      .label {
+        margin: 0;
+        color: rgba(18, 18, 18, 0.72);
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+
+      .screen {
+        position: relative;
+        min-width: 0;
+        max-width: 100%;
+        min-height: 360px;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.88);
+        border-radius: 8px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 18%),
+          radial-gradient(ellipse at 50% 22%, rgba(143, 230, 216, 0.16), transparent 54%),
+          linear-gradient(180deg, var(--screen), var(--screen-deep));
+        box-shadow:
+          inset 0 0 0 4px rgba(0, 0, 0, 0.24),
+          inset 0 0 42px rgba(0, 0, 0, 0.9),
+          0 2px 0 rgba(255, 255, 255, 0.22),
+          0 16px 24px rgba(0, 0, 0, 0.3);
+      }
+
+      .screen::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        pointer-events: none;
+        opacity: 0.34;
+        background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 5px);
+        mix-blend-mode: soft-light;
+      }
+
+      .lcd {
+        color: var(--teal);
+        text-shadow: 0 0 8px rgba(143, 230, 216, 0.5);
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+
+      .amber {
+        color: var(--amber);
+        text-shadow: 0 0 9px rgba(255, 193, 93, 0.45);
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+
+      .freq {
+        color: #aafff1;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 4.75rem;
+        line-height: 0.94;
+        text-shadow: 0 0 10px rgba(143, 230, 216, 0.8), 0 0 28px rgba(143, 230, 216, 0.28);
+      }
+
+      .dial-wrap {
+        --dial-size: 154px;
+        position: relative;
+        width: var(--dial-size);
+        height: var(--dial-size);
+        margin-inline: auto;
+      }
+
+      .dial {
+        --angle: -135deg;
+        position: absolute;
+        inset: 18px;
+        border: 1px solid rgba(0, 0, 0, 0.86);
+        border-radius: 999px;
+        cursor: grab;
+        touch-action: none;
+        background:
+          radial-gradient(circle at 35% 28%, rgba(255, 246, 217, 0.96) 0 8%, transparent 9%),
+          radial-gradient(circle at 38% 30%, #d9b978 0%, #9e7034 42%, #483018 72%, #17100a 100%);
+        box-shadow:
+          inset 0 2px 2px rgba(255, 255, 255, 0.46),
+          inset 0 -8px 14px rgba(0, 0, 0, 0.42),
+          0 10px 18px rgba(28, 19, 9, 0.46);
+        outline: none;
+      }
+
+      .dial:focus-visible {
+        outline: 3px solid rgba(143, 230, 216, 0.72);
+        outline-offset: 4px;
+      }
+
+      .dial::before {
+        content: "";
+        position: absolute;
+        inset: 16px;
+        border: 1px solid rgba(255, 232, 171, 0.26);
+        border-radius: inherit;
+      }
+
+      .dial::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 17px;
+        width: 4px;
+        height: 38px;
+        border-radius: 999px;
+        background: var(--paper);
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.42);
+        transform: translateX(-50%) rotate(var(--angle));
+        transform-origin: 50% 51px;
+      }
+
+      .tick {
+        position: absolute;
+        width: 2px;
+        height: 9px;
+        border-radius: 999px;
+        background: rgba(32, 24, 14, 0.42);
+      }
+
+      .tick.major {
+        height: 14px;
+        background: rgba(20, 14, 8, 0.76);
+      }
+
+      .dial-value {
+        min-width: 126px;
+        border: 1px solid rgba(20, 14, 8, 0.68);
+        border-radius: 4px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent), #111616;
+        color: var(--amber);
+        box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.82), 0 1px 0 rgba(255, 255, 255, 0.24);
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+
+      .meter {
+        border: 1px solid rgba(20, 14, 8, 0.56);
+        border-radius: 5px;
+        background: #ead9b3;
+        box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.28);
+      }
+
+      .meter-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #5f9472, #e6b04a, #c64a2c);
+      }
+
+      .tuner {
+        position: relative;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        height: 86px;
+        border: 1px solid rgba(143, 230, 216, 0.18);
+        border-radius: 5px;
+        background:
+          linear-gradient(180deg, rgba(143, 230, 216, 0.08), rgba(0, 0, 0, 0.14)),
+          repeating-linear-gradient(90deg, rgba(143, 230, 216, 0.08) 0 1px, transparent 1px 24px);
+      }
+
+      .needle {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        width: 2px;
+        transform: translateX(-50%);
+        background: #fff2c9;
+        box-shadow: 0 0 10px rgba(255, 242, 201, 0.72);
+      }
+
+      .needle::before {
+        content: "";
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        width: 12px;
+        height: 8px;
+        transform: translateX(-50%);
+        clip-path: polygon(50% 100%, 0 0, 100% 0);
+        background: #fff2c9;
+      }
+
+      .marker {
+        position: absolute;
+        bottom: 8px;
+        width: 9px;
+        height: 9px;
+        transform: translateX(-50%);
+        border: 1px solid rgba(143, 230, 216, 0.34);
+        border-radius: 999px;
+        background: rgba(143, 230, 216, 0.3);
+      }
+
+      .marker.active {
+        border-color: #fff2c9;
+        background: #fff2c9;
+        box-shadow: 0 0 14px rgba(255, 242, 201, 0.78);
+      }
+
+      .analyzer {
+        display: grid;
+        grid-template-columns: repeat(28, minmax(0, 1fr));
+        min-width: 0;
+        max-width: 100%;
+        gap: 3px;
+        height: 76px;
+      }
+
+      .an-col {
+        display: grid;
+        grid-template-rows: repeat(8, minmax(0, 1fr));
+        gap: 2px;
+      }
+
+      .an-cell {
+        border-radius: 1px;
+        background: rgba(143, 230, 216, 0.12);
+      }
+
+      .an-cell.lit {
+        background: var(--teal);
+        box-shadow: 0 0 8px rgba(143, 230, 216, 0.45);
+      }
+
+      .led {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #31160f;
+        box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.88);
+      }
+
+      .led.on {
+        background: var(--red);
+        box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.3), 0 0 12px rgba(215, 77, 49, 0.86);
+      }
+
+      .button {
+        border: 1px solid rgba(27, 21, 12, 0.42);
+        border-radius: 6px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04)), #c2ab78;
+        color: rgba(18, 18, 18, 0.82);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48), 0 2px 0 rgba(58, 40, 19, 0.34);
+      }
+
+      .button:hover,
+      .button.active {
+        color: #101313;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08)), #f1d48c;
+      }
+
+      .play {
+        border: 1px solid rgba(52, 19, 10, 0.72);
+        border-radius: 6px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.02)), var(--rust);
+        color: #fff4d8;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 4px 0 #6d2717, 0 10px 20px rgba(31, 19, 12, 0.26);
+      }
+
+      .play:active,
+      .play.active {
+        transform: translateY(3px);
+        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.32), 0 1px 0 #6d2717;
+      }
+
+      .input {
+        border: 1px solid rgba(31, 22, 13, 0.42);
+        border-radius: 6px;
+        background: rgba(255, 249, 229, 0.64);
+        color: #121212;
+        outline: none;
+      }
+
+      .mode.active {
+        background: #152020;
+        color: var(--teal);
+        box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.62);
+      }
+
+      @media (max-width: 860px) {
+        .screen {
+          min-height: 330px;
+        }
+
+        .freq {
+          font-size: 4rem;
+        }
+
+        .dial-wrap {
+          --dial-size: 136px;
+        }
+
+        .dial {
+          inset: 16px;
+        }
+      }
+
+      @media (max-width: 540px) {
+        .console {
+          width: calc(100vw - 24px);
+          max-width: calc(100vw - 24px);
+        }
+
+        .screen {
+          min-height: 312px;
+        }
+
+        .freq {
+          font-size: 3.25rem;
+        }
+
+        .analyzer {
+          grid-template-columns: repeat(20, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="min-h-screen px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-10">
+      <section class="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1180px] items-center justify-center">
+        <div class="console p-3 sm:p-4 lg:p-5">
+          <div class="top-rail mb-3 flex items-center justify-between gap-3 rounded-[6px] px-3 py-2 sm:px-4">
+            <div class="flex min-w-0 items-center gap-3">
+              <span id="powerLed" class="led"></span>
+              <div class="min-w-0">
+                <p class="m-0 font-mono text-xs font-semibold text-[#f7edcf]">Console-7</p>
+                <p id="topStatus" class="m-0 truncate font-mono text-[0.68rem] text-[#ffc15d]">STANDBY</p>
+              </div>
+            </div>
+            <div class="hidden items-center gap-2 sm:flex">
+              <span class="h-2 w-2 rounded-full bg-[#7ebe88] shadow-[0_0_10px_rgba(126,190,136,.8)]"></span>
+              <span id="apiStatus" class="font-mono text-[0.68rem] text-[#d7c49b]">CHECKING API</span>
+            </div>
+            <div class="font-mono text-[0.68rem] text-[#d7c49b]">SN-7042</div>
+          </div>
+
+          <div class="grid gap-3 lg:grid-cols-[238px_minmax(0,1fr)_238px] lg:gap-4">
+            <section class="panel order-2 p-4 sm:p-5 lg:order-1" aria-labelledby="frequencyLabel">
+              <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p id="frequencyLabel" class="label">Frequency</p>
+                  <p class="m-0 mt-1 text-sm text-[#3a2a18]">Analog tune</p>
+                </div>
+                <span class="rounded-[4px] border border-[#43311d]/40 bg-[#f5e7c5]/50 px-2 py-1 font-mono text-[0.68rem] text-[#2a2116]">FM</span>
+              </div>
+              <div id="frequencyDialWrap" class="dial-wrap">
+                <div
+                  id="frequencyDial"
+                  class="dial"
+                  role="slider"
+                  tabindex="0"
+                  aria-labelledby="frequencyLabel"
+                  aria-valuemin="87.5"
+                  aria-valuemax="108"
+                  aria-valuenow="88.3"
+                  aria-valuetext="88.3 MHz"
+                ></div>
+              </div>
+              <div class="mt-4 grid justify-items-center gap-3">
+                <div class="dial-value px-3 py-2 text-center text-2xl font-semibold">
+                  <span id="dialFreqReadout">88.3</span>
+                </div>
+                <div class="grid w-full grid-cols-2 gap-2">
+                  <button id="freqDown" class="button px-3 py-2 font-mono text-sm font-semibold" type="button">-0.1</button>
+                  <button id="freqUp" class="button px-3 py-2 font-mono text-sm font-semibold" type="button">+0.1</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="screen order-1 p-4 sm:p-5 lg:order-2" aria-label="Retro broadcast display">
+              <div class="relative z-[2] grid h-full grid-rows-[auto_auto_1fr_auto] gap-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="amber m-0 text-xs font-semibold">PERSONAL BROADCAST</p>
+                    <p id="screenStatus" class="lcd m-0 mt-1 truncate text-sm">STANDBY</p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-2 rounded-[4px] border border-[#8fe6d8]/20 px-2 py-1">
+                    <span id="lockLed" class="led on"></span>
+                    <span id="signalText" class="lcd text-xs">LOCK</span>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                  <div class="min-w-0">
+                    <div class="flex items-end gap-3">
+                      <span id="freqReadout" class="freq">88.3</span>
+                      <span class="amber pb-1 text-xl font-semibold">MHz</span>
+                    </div>
+                    <p id="stationName" class="amber m-0 mt-2 truncate text-2xl font-semibold">DEEP FOCUS</p>
+                    <p id="stationTag" class="lcd m-0 mt-1 truncate text-sm">ambient lab loops</p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2 md:w-[190px]">
+                    <div class="rounded-[4px] border border-[#8fe6d8]/20 p-2">
+                      <p class="lcd m-0 text-[0.68rem]">VOLUME</p>
+                      <p id="screenVolume" class="amber m-0 text-xl font-semibold">72</p>
+                    </div>
+                    <div class="rounded-[4px] border border-[#8fe6d8]/20 p-2">
+                      <p class="lcd m-0 text-[0.68rem]">TIME</p>
+                      <p id="timerReadout" class="amber m-0 text-xl font-semibold">02:00</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid gap-3">
+                  <div id="analyzer" class="analyzer" aria-hidden="true"></div>
+                  <div id="tunerTrack" class="tuner">
+                    <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 12.2%">90</span>
+                    <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 36.6%">95</span>
+                    <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 61%">100</span>
+                    <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 85.4%">105</span>
+                    <span id="tunerNeedle" class="needle" style="left: 3.9%"></span>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <div class="min-w-0">
+                    <p class="lcd m-0 text-[0.68rem]">PROGRAM</p>
+                    <p id="programText" class="amber m-0 truncate text-sm">Ready for a generated test signal.</p>
+                  </div>
+                  <button id="playButton" type="button" class="play min-h-12 px-8 py-3 font-mono text-base font-semibold">PLAY</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel order-3 p-4 sm:p-5" aria-labelledby="volumeLabel">
+              <div class="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p id="volumeLabel" class="label">Volume</p>
+                  <p class="m-0 mt-1 text-sm text-[#3a2a18]">Output gain</p>
+                </div>
+                <span class="rounded-[4px] border border-[#43311d]/40 bg-[#f5e7c5]/50 px-2 py-1 font-mono text-[0.68rem] text-[#2a2116]">AUDIO</span>
+              </div>
+              <div id="volumeDialWrap" class="dial-wrap">
+                <div
+                  id="volumeDial"
+                  class="dial"
+                  role="slider"
+                  tabindex="0"
+                  aria-labelledby="volumeLabel"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="72"
+                  aria-valuetext="72 percent"
+                ></div>
+              </div>
+              <div class="mt-4 grid justify-items-center gap-3">
+                <div class="dial-value px-3 py-2 text-center text-2xl font-semibold">
+                  <span id="dialVolumeReadout">72</span>
+                </div>
+                <div class="meter h-3 w-full overflow-hidden">
+                  <span id="volumeMeter" class="meter-fill block"></span>
+                </div>
+                <div class="grid w-full grid-cols-3 gap-2">
+                  <button data-volume-preset="35" class="button px-2 py-2 font-mono text-xs font-semibold" type="button">LOW</button>
+                  <button data-volume-preset="72" class="button px-2 py-2 font-mono text-xs font-semibold" type="button">MID</button>
+                  <button data-volume-preset="100" class="button px-2 py-2 font-mono text-xs font-semibold" type="button">MAX</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <section class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_310px]">
+            <div class="panel p-3">
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <p class="label">Presets</p>
+                <p class="m-0 hidden truncate text-right font-mono text-[0.68rem] text-[#342817]/70 sm:block">Tap a station or turn the dial</p>
+              </div>
+              <div id="presetRail" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"></div>
+            </div>
+
+            <details class="panel p-3">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span class="label">Service</span>
+                <span id="serviceSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70">mock / 2 min</span>
+              </summary>
+              <div class="mt-3 grid gap-3">
+                <label class="grid gap-1">
+                  <span class="label">Backend</span>
+                  <input id="apiBaseInput" class="input min-h-10 px-3 py-2 text-sm" type="url" value="" />
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button id="modeMock" class="button mode min-h-10 px-3 py-2 font-mono text-xs font-semibold" type="button">DEMO</button>
+                  <button id="modeReal" class="button mode min-h-10 px-3 py-2 font-mono text-xs font-semibold" type="button">REAL</button>
+                </div>
+                <label class="grid gap-1">
+                  <span class="label">Duration</span>
+                  <select id="durationSelect" class="input min-h-10 px-3 py-2 text-sm">
+                    <option value="60">1 minute</option>
+                    <option value="120" selected>2 minutes</option>
+                    <option value="300">5 minutes</option>
+                    <option value="900">15 minutes</option>
+                    <option value="1800">30 minutes</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const FREQ_MIN = 87.5;
+      const FREQ_MAX = 108.0;
+      const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8765";
+      const ACTIVE_STATES = new Set(["starting", "generating", "playing"]);
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const pad = (n) => String(Math.floor(n)).padStart(2, "0");
+      const pad2 = (n) => String(n).padStart(2, "0");
+
+      const fallbackStations = [
+        ["DEEP FOCUS", "ambient lab loops", 88.3, "Pavilion 04 - Lake Theta"],
+        ["LOFI MEMORY", "nostalgic recompositions", 91.4, "Camcorder Sun"],
+        ["SOLAR DRIFT", "sun-warmed synthwave", 94.7, "Topanga FM"],
+        ["NIGHTCREW", "midnight conversations", 98.1, "Late-shift roundtable"],
+        ["ARCHIVE BLOOM", "found sound, restored", 101.9, "Lecture 7 recombined"],
+        ["SIGNAL / NOISE", "experimental cuts", 104.6, "Generator Alpha"],
+        ["LONG WAVE", "drone meditation", 107.2, "Thalassa"],
+      ].map(([name, tag, mhz, track], index) => ({
+        id: index + 1,
+        backendId: null,
+        name,
+        tag,
+        mhz,
+        hosts: 1,
+        voiceA: "F",
+        voiceB: "M",
+        tone: 25,
+        urls: [],
+        sourcePresetIds: [],
+        tracks: [track],
+      }));
+
+      const state = {
+        freqMHz: fallbackStations[0].mhz,
+        volume: 72,
+        durationSec: 120,
+        remainingSec: 0,
+        mode: "mock",
+        apiBase: defaultApiBase(),
+        apiStatus: "checking",
+        playerState: "idle",
+        playerText: "STANDBY",
+        segmentProgress: { queued: 0, played: 0, total: 0 },
+        generationComplete: false,
+        stations: fallbackStations,
+      };
+
+      const playback = {
+        audioContext: null,
+        gainNode: null,
+        eventSource: null,
+        sourceRefs: [],
+        activeApiBase: "",
+        nextStartTime: 0,
+        runId: 0,
+      };
+
+      const els = {};
+      let frequencyDial;
+      let volumeDial;
+      let analyzerColumns = [];
+      let apiCheckTimer = null;
+
+      function defaultApiBase() {
+        if (window.location.protocol === "http:" || window.location.protocol === "https:") return window.location.origin;
+        return DEFAULT_BACKEND_BASE;
+      }
+
+      function cleanApiBase(value) {
+        return String(value || "").trim().replace(/\/+$/, "");
+      }
+
+      async function requestJson(apiBase, path, options = {}) {
+        const response = await fetch(`${cleanApiBase(apiBase)}${path}`, options);
+        const text = await response.text();
+        let body = {};
+        if (text) {
+          try {
+            body = JSON.parse(text);
+          } catch {
+            body = { error: text };
+          }
+        }
+        if (!response.ok) {
+          const error = new Error(body.error || `Request failed: ${response.status}`);
+          error.status = response.status;
+          throw error;
+        }
+        return body;
+      }
+
+      async function requestJsonFromAnyApi(primaryApiBase, path, options = {}) {
+        let lastError = null;
+        for (const base of [cleanApiBase(primaryApiBase), DEFAULT_BACKEND_BASE].filter(Boolean)) {
+          try {
+            return { data: await requestJson(base, path, options), apiBase: base };
+          } catch (error) {
+            lastError = error;
+            if (error?.status && ![404, 405, 501].includes(error.status)) break;
+          }
+        }
+        throw lastError || new Error("API request failed");
+      }
+
+      function stationFromVibe(vibe, index) {
+        const hostFormat = vibe.host_format || vibe.host?.format || "solo";
+        const voiceGender = vibe.voice_gender || vibe.host?.voice_gender || "female";
+        const mhz = [88.3, 91.4, 94.7, 98.1, 101.2, 104.6, 106.8, 107.6][index] || 99.5;
+        return {
+          id: vibe.id,
+          backendId: vibe.id,
+          name: String(vibe.name || "VIBE").toUpperCase(),
+          tag: (vibe.rss_feeds || []).length ? `${vibe.rss_feeds.length} sources` : "default sources",
+          mhz,
+          hosts: hostFormat === "duo" ? 2 : 1,
+          voiceA: voiceGender === "male" ? "M" : "F",
+          voiceB: voiceGender === "male" ? "F" : "M",
+          tone: vibe.tone === "professional" ? 75 : 25,
+          urls: vibe.custom_rss_feeds || [],
+          sourcePresetIds: vibe.source_preset_ids || [],
+          tracks: ["Saved personal vibe"],
+        };
+      }
+
+      function styleFromStation(station) {
+        const tone = station.tone >= 50 ? "professional, crisp, source-aware radio" : "casual, warm, already-on-air radio";
+        const hosts = station.hosts === 2 ? "two-host handoff" : "solo host";
+        return `${tone}; ${hosts}`;
+      }
+
+      function episodePayloadFromStation(station) {
+        const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
+        if (station.backendId) {
+          return {
+            mode: state.mode,
+            vibe_id: station.backendId,
+            replace_topics: true,
+            replace_rss_feeds: true,
+            duration: `${durationMinutes} minutes`,
+            duration_minutes: durationMinutes,
+          };
+        }
+        return {
+          mode: state.mode,
+          station_name: station.name,
+          style: styleFromStation(station),
+          rss_feeds: station.urls || [],
+          replace_topics: true,
+          replace_rss_feeds: true,
+          source_preset_ids: station.sourcePresetIds || [],
+          host_tone: station.tone >= 50 ? "professional" : "casual",
+          voice_gender: station.voiceA === "M" ? "male" : "female",
+          host_format: station.hosts === 2 ? "duo" : "solo",
+          duration: `${durationMinutes} minutes`,
+          duration_minutes: durationMinutes,
+        };
+      }
+
+      function humanStatus(status) {
+        return (
+          {
+            queued: "QUEUED",
+            checking_runtime: "CHECKING",
+            fetching_sources: "SOURCES",
+            generating_script: "SCRIPTING",
+            rendering_audio: "RENDERING",
+            audio_disabled: "NO AUDIO",
+            complete: "COMPLETE",
+            failed: "FAILED",
+          }[status] || String(status || "WORKING").toUpperCase()
+        );
+      }
+
+      function formatTimer(value) {
+        const total = Math.max(0, Math.round(value || 0));
+        return `${pad(total / 60)}:${pad(total % 60)}`;
+      }
+
+      function active() {
+        return ACTIVE_STATES.has(state.playerState);
+      }
+
+      function closestStation() {
+        let station = state.stations[0];
+        let index = 0;
+        let dist = Infinity;
+        state.stations.forEach((candidate, i) => {
+          const next = Math.abs(candidate.mhz - state.freqMHz);
+          if (next < dist) {
+            station = candidate;
+            index = i;
+            dist = next;
+          }
+        });
+        return { station, index, dist, tuned: dist <= 0.4 };
+      }
+
+      function pctForFreq(freq) {
+        return ((freq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN)) * 100;
+      }
+
+      function setFrequency(value) {
+        state.freqMHz = Math.round(clamp(value, FREQ_MIN, FREQ_MAX) * 10) / 10;
+        frequencyDial?.setValue(state.freqMHz, false);
+        render();
+      }
+
+      function setVolume(value) {
+        state.volume = Math.round(clamp(value, 0, 100));
+        volumeDial?.setValue(state.volume, false);
+        if (playback.gainNode && playback.audioContext) {
+          playback.gainNode.gain.setTargetAtTime(state.volume / 100, playback.audioContext.currentTime, 0.015);
+        }
+        try {
+          localStorage.setItem("vibefm.volume", String(state.volume));
+        } catch {}
+        render();
+      }
+
+      function setPlayer(playerState, text) {
+        state.playerState = playerState;
+        state.playerText = text || state.playerText;
+        render();
+      }
+
+      function tickMarks(container) {
+        for (let i = 0; i < 25; i += 1) {
+          const angle = -135 + (i / 24) * 270;
+          const rad = (angle * Math.PI) / 180;
+          const tick = document.createElement("span");
+          tick.className = `tick${i % 4 === 0 ? " major" : ""}`;
+          tick.style.left = `${50 + 45 * Math.sin(rad)}%`;
+          tick.style.top = `${50 - 45 * Math.cos(rad)}%`;
+          tick.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+          container.appendChild(tick);
+        }
+      }
+
+      function bindDial(element, config) {
+        const range = config.max - config.min;
+        let value = config.value;
+        let dragging = false;
+        const normalize = (raw) => Math.round(raw / config.step) * config.step;
+        const angleFor = (next) => -135 + ((next - config.min) / range) * 270;
+
+        function setValue(nextValue, notify = true) {
+          value = clamp(normalize(nextValue), config.min, config.max);
+          element.style.setProperty("--angle", `${angleFor(value)}deg`);
+          element.setAttribute("aria-valuenow", String(Math.round(value * 10) / 10));
+          element.setAttribute("aria-valuetext", config.format(value));
+          if (notify) config.onChange(value);
+        }
+
+        function valueFromPointer(event) {
+          const rect = element.getBoundingClientRect();
+          const dx = event.clientX - (rect.left + rect.width / 2);
+          const dy = event.clientY - (rect.top + rect.height / 2);
+          if (Math.hypot(dx, dy) < rect.width * 0.08) return null;
+          const angle = clamp(Math.atan2(dx, -dy) * (180 / Math.PI), -135, 135);
+          return config.min + ((angle + 135) / 270) * range;
+        }
+
+        function applyPointer(event) {
+          const next = valueFromPointer(event);
+          if (next != null) {
+            event.preventDefault();
+            setValue(next);
+          }
+        }
+
+        element.addEventListener("pointerdown", (event) => {
+          dragging = true;
+          element.setPointerCapture?.(event.pointerId);
+          applyPointer(event);
+        });
+        element.addEventListener("pointermove", (event) => dragging && applyPointer(event));
+        element.addEventListener("pointerup", (event) => {
+          dragging = false;
+          element.releasePointerCapture?.(event.pointerId);
+        });
+        element.addEventListener("pointercancel", () => {
+          dragging = false;
+        });
+        element.addEventListener("wheel", (event) => {
+          event.preventDefault();
+          setValue(value - Math.sign(event.deltaY) * config.step);
+        });
+        element.addEventListener("keydown", (event) => {
+          const keys = {
+            ArrowUp: config.step,
+            ArrowRight: config.step,
+            ArrowDown: -config.step,
+            ArrowLeft: -config.step,
+            PageUp: config.step * 10,
+            PageDown: -config.step * 10,
+          };
+          if (event.key in keys) {
+            event.preventDefault();
+            setValue(value + keys[event.key]);
+          } else if (event.key === "Home") {
+            event.preventDefault();
+            setValue(config.min);
+          } else if (event.key === "End") {
+            event.preventDefault();
+            setValue(config.max);
+          }
+        });
+        setValue(value, false);
+        return { setValue };
+      }
+
+      function buildAnalyzer() {
+        els.analyzer.innerHTML = "";
+        const columns = window.matchMedia("(max-width: 540px)").matches ? 20 : 28;
+        analyzerColumns = [];
+        for (let i = 0; i < columns; i += 1) {
+          const col = document.createElement("span");
+          col.className = "an-col";
+          const cells = [];
+          for (let r = 0; r < 8; r += 1) {
+            const cell = document.createElement("span");
+            cell.className = "an-cell";
+            cells.push(cell);
+            col.appendChild(cell);
+          }
+          analyzerColumns.push(cells);
+          els.analyzer.appendChild(col);
+        }
+      }
+
+      function animateAnalyzer() {
+        const on = active();
+        const t = performance.now() / 420;
+        analyzerColumns.forEach((cells, i) => {
+          const bias = 1 - Math.abs(i - analyzerColumns.length / 2) / analyzerColumns.length;
+          const wave = on ? 0.52 + 0.28 * Math.sin(t + i * 0.44) + 0.18 * Math.sin(t * 1.55 + i * 0.71) : 0.12;
+          const lit = Math.round(clamp(wave * bias, 0, 1) * cells.length);
+          cells.forEach((cell, row) => cell.classList.toggle("lit", cells.length - 1 - row < lit));
+        });
+        requestAnimationFrame(animateAnalyzer);
+      }
+
+      function renderMarkers(current) {
+        els.tunerTrack.querySelectorAll(".marker").forEach((marker) => marker.remove());
+        state.stations.forEach((station) => {
+          const marker = document.createElement("button");
+          marker.type = "button";
+          marker.className = `marker${station.id === current?.id ? " active" : ""}`;
+          marker.style.left = `${pctForFreq(station.mhz)}%`;
+          marker.title = `${station.name} ${station.mhz.toFixed(1)} MHz`;
+          marker.addEventListener("click", () => setFrequency(station.mhz));
+          els.tunerTrack.appendChild(marker);
+        });
+      }
+
+      function renderPresets(current) {
+        els.presetRail.innerHTML = "";
+        state.stations.forEach((station, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `button min-h-14 px-3 py-2 text-left${station.id === current?.id ? " active" : ""}`;
+          button.innerHTML = `<span class="block font-mono text-[0.68rem] text-[#332413]/65">${pad2(index + 1)} / ${station.mhz.toFixed(1)} MHz</span><span class="block truncate font-mono text-sm font-semibold">${station.name}</span>`;
+          button.addEventListener("click", () => setFrequency(station.mhz));
+          els.presetRail.appendChild(button);
+        });
+      }
+
+      function render() {
+        const lock = closestStation();
+        const station = lock.station;
+        const isOn = active();
+        const signal = lock.tuned ? Math.max(18, Math.round((1 - lock.dist / 0.4) * 100)) : 0;
+        const timer = formatTimer(isOn ? state.remainingSec : state.durationSec);
+        els.freqReadout.textContent = state.freqMHz.toFixed(1);
+        els.dialFreqReadout.textContent = state.freqMHz.toFixed(1);
+        els.stationName.textContent = lock.tuned ? station.name : "SCANNING";
+        els.stationTag.textContent = lock.tuned ? station.tag : `nearest: ${station.name}`;
+        els.screenStatus.textContent = state.playerText;
+        els.topStatus.textContent = state.playerText;
+        els.signalText.textContent = lock.tuned ? `${signal}% LOCK` : "SEARCH";
+        els.screenVolume.textContent = String(state.volume);
+        els.dialVolumeReadout.textContent = String(state.volume);
+        els.timerReadout.textContent = timer;
+        els.volumeMeter.style.width = `${state.volume}%`;
+        els.tunerNeedle.style.left = `${pctForFreq(state.freqMHz)}%`;
+        els.playButton.textContent = isOn ? "STOP" : "PLAY";
+        els.playButton.classList.toggle("active", isOn);
+        els.powerLed.classList.toggle("on", isOn);
+        els.lockLed.classList.toggle("on", lock.tuned);
+        els.apiStatus.textContent = state.apiStatus === "ready" ? "API READY" : state.apiStatus === "checking" ? "CHECKING API" : "API OFFLINE";
+        els.serviceSummary.textContent = `${state.mode} / ${Math.round(state.durationSec / 60)} min`;
+        els.modeMock.classList.toggle("active", state.mode === "mock");
+        els.modeReal.classList.toggle("active", state.mode === "real");
+        els.durationSelect.value = String(state.durationSec);
+        els.programText.textContent = isOn
+          ? state.segmentProgress.total
+            ? `${state.segmentProgress.queued}/${state.segmentProgress.total} segments queued`
+            : "Preparing generated signal"
+          : station.tracks?.[0] || "Ready for a generated test signal.";
+        renderMarkers(lock.tuned ? station : null);
+        renderPresets(lock.tuned ? station : null);
+      }
+
+      function isCurrentRun(runId) {
+        return runId === playback.runId;
+      }
+
+      function closePlaybackHardware() {
+        if (playback.eventSource) playback.eventSource.close();
+        playback.eventSource = null;
+        playback.sourceRefs.forEach((source) => {
+          try {
+            source.stop();
+          } catch {}
+        });
+        playback.sourceRefs = [];
+        if (playback.audioContext && playback.audioContext.state !== "closed") playback.audioContext.close().catch(() => {});
+        playback.audioContext = null;
+        playback.gainNode = null;
+        playback.activeApiBase = "";
+      }
+
+      async function stopPlayback(label = "STOPPED") {
+        playback.runId += 1;
+        closePlaybackHardware();
+        state.generationComplete = false;
+        state.segmentProgress = { queued: 0, played: 0, total: 0 };
+        state.remainingSec = 0;
+        setPlayer("idle", label);
+      }
+
+      function finishPlayback(label = "PLAYBACK COMPLETE") {
+        closePlaybackHardware();
+        state.generationComplete = false;
+        state.segmentProgress = { queued: 0, played: 0, total: 0 };
+        state.remainingSec = 0;
+        setPlayer("complete", label);
+      }
+
+      async function startEpisode() {
+        if (active()) {
+          await stopPlayback();
+          return;
+        }
+        const lock = closestStation();
+        const station = lock.station;
+        if (!lock.tuned) setFrequency(station.mhz);
+        await stopPlayback("STANDBY");
+        const runId = playback.runId + 1;
+        playback.runId = runId;
+        state.remainingSec = Math.max(60, state.durationSec);
+        state.segmentProgress = { queued: 0, played: 0, total: 0 };
+        setPlayer("starting", "STARTING");
+        try {
+          const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContextCtor) throw new Error("AUDIO UNSUPPORTED");
+          playback.audioContext = new AudioContextCtor();
+          playback.gainNode = playback.audioContext.createGain();
+          playback.gainNode.gain.value = state.volume / 100;
+          playback.gainNode.connect(playback.audioContext.destination);
+          await playback.audioContext.resume();
+          playback.nextStartTime = playback.audioContext.currentTime + 0.18;
+
+          const { data: job, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/episodes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(episodePayloadFromStation(station)),
+          });
+          if (!isCurrentRun(runId)) return;
+          state.apiBase = apiBase;
+          els.apiBaseInput.value = apiBase;
+          state.apiStatus = "ready";
+          playback.activeApiBase = apiBase;
+          setPlayer("generating", job.vibe ? `TUNED ${job.vibe.name}` : `TUNED ${station.name}`);
+          const stream = new EventSource(`${apiBase}${job.events_url}`);
+          playback.eventSource = stream;
+          stream.addEventListener("status", (event) => {
+            if (!isCurrentRun(runId)) return;
+            const data = JSON.parse(event.data);
+            setPlayer(data.status === "rendering_audio" ? "playing" : "generating", humanStatus(data.status));
+          });
+          stream.addEventListener("script_ready", (event) => {
+            if (!isCurrentRun(runId)) return;
+            const data = JSON.parse(event.data);
+            state.segmentProgress = { ...state.segmentProgress, total: data.segment_count || 0 };
+            setPlayer("generating", `${data.segment_count || 0} SEGMENTS`);
+          });
+          stream.addEventListener("segment_ready", (event) => queueSegment(JSON.parse(event.data), runId));
+          stream.addEventListener("complete", (event) => {
+            if (!isCurrentRun(runId)) return;
+            const data = JSON.parse(event.data);
+            state.generationComplete = true;
+            if (playback.eventSource) playback.eventSource.close();
+            playback.eventSource = null;
+            if (state.segmentProgress.total > 0 && state.segmentProgress.played >= state.segmentProgress.total) finishPlayback();
+            else if (!data.audio_url && state.segmentProgress.queued === 0) finishPlayback("COMPLETE");
+            else setPlayer("playing", "ALL QUEUED");
+          });
+          stream.addEventListener("failed", (event) => {
+            if (!isCurrentRun(runId)) return;
+            const data = JSON.parse(event.data);
+            closePlaybackHardware();
+            state.remainingSec = 0;
+            setPlayer("failed", data.error || "FAILED");
+          });
+          stream.onerror = () => {
+            if (isCurrentRun(runId) && !state.generationComplete) {
+              state.playerText = "SIGNAL RETRY";
+              render();
+            }
+          };
+        } catch (error) {
+          if (!isCurrentRun(runId)) return;
+          closePlaybackHardware();
+          state.apiStatus = error?.status ? state.apiStatus : "offline";
+          state.remainingSec = 0;
+          setPlayer("failed", error.message || "PLAY FAILED");
+        }
+      }
+
+      async function queueSegment(segment, runId) {
+        const context = playback.audioContext;
+        if (!context || !playback.gainNode) return;
+        try {
+          const response = await fetch(`${playback.activeApiBase || cleanApiBase(state.apiBase)}${segment.audio_url}`);
+          if (!response.ok) throw new Error(`SEGMENT ${response.status}`);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          if (!isCurrentRun(runId)) return;
+          const source = context.createBufferSource();
+          source.buffer = buffer;
+          source.connect(playback.gainNode);
+          const startAt = Math.max(playback.nextStartTime, context.currentTime + 0.06);
+          source.start(startAt);
+          playback.nextStartTime = startAt + buffer.duration + 0.04;
+          playback.sourceRefs.push(source);
+          state.segmentProgress = { ...state.segmentProgress, queued: state.segmentProgress.queued + 1 };
+          setPlayer("playing", `PLAYING ${segment.index + 1}`);
+          source.onended = () => {
+            if (!isCurrentRun(runId)) return;
+            state.segmentProgress = { ...state.segmentProgress, played: state.segmentProgress.played + 1 };
+            if (state.generationComplete && state.segmentProgress.total > 0 && state.segmentProgress.played >= state.segmentProgress.total) finishPlayback();
+            else render();
+          };
+        } catch (error) {
+          if (isCurrentRun(runId)) setPlayer("failed", error.message || "AUDIO FAILED");
+        }
+      }
+
+      function startTimer() {
+        setInterval(() => {
+          if (!active()) return;
+          state.remainingSec = Math.max(0, state.remainingSec - 1);
+          if (state.remainingSec <= 0) stopPlayback("TIMER DONE");
+          else render();
+        }, 1000);
+      }
+
+      async function checkApi() {
+        state.apiStatus = "checking";
+        render();
+        try {
+          const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes");
+          state.apiBase = apiBase;
+          els.apiBaseInput.value = apiBase;
+          const saved = Array.isArray(data.vibes) ? data.vibes.map(stationFromVibe) : [];
+          if (saved.length > 0) {
+            state.stations = saved;
+            state.freqMHz = saved[0].mhz;
+            frequencyDial?.setValue(state.freqMHz, false);
+          }
+          state.apiStatus = "ready";
+        } catch {
+          state.apiStatus = "offline";
+        }
+        render();
+      }
+
+      function boot() {
+        [
+          "powerLed",
+          "topStatus",
+          "apiStatus",
+          "frequencyDialWrap",
+          "frequencyDial",
+          "dialFreqReadout",
+          "freqDown",
+          "freqUp",
+          "screenStatus",
+          "lockLed",
+          "signalText",
+          "freqReadout",
+          "stationName",
+          "stationTag",
+          "screenVolume",
+          "timerReadout",
+          "analyzer",
+          "tunerTrack",
+          "tunerNeedle",
+          "programText",
+          "playButton",
+          "volumeDialWrap",
+          "volumeDial",
+          "dialVolumeReadout",
+          "volumeMeter",
+          "presetRail",
+          "serviceSummary",
+          "apiBaseInput",
+          "modeMock",
+          "modeReal",
+          "durationSelect",
+        ].forEach((id) => {
+          els[id] = document.getElementById(id);
+        });
+
+        try {
+          const storedVolume = localStorage.getItem("vibefm.volume");
+          const storedMode = localStorage.getItem("vibefm.mode");
+          const storedDuration = localStorage.getItem("vibefm.durationSec");
+          const storedApi = localStorage.getItem("vibefm.apiBase");
+          if (storedVolume != null) state.volume = Number(storedVolume) || state.volume;
+          if (storedMode) state.mode = storedMode;
+          if (storedDuration) state.durationSec = Number(storedDuration) || state.durationSec;
+          if (storedApi) state.apiBase = storedApi;
+        } catch {}
+
+        tickMarks(els.frequencyDialWrap);
+        tickMarks(els.volumeDialWrap);
+        frequencyDial = bindDial(els.frequencyDial, {
+          min: FREQ_MIN,
+          max: FREQ_MAX,
+          step: 0.1,
+          value: state.freqMHz,
+          format: (value) => `${value.toFixed(1)} MHz`,
+          onChange: setFrequency,
+        });
+        volumeDial = bindDial(els.volumeDial, {
+          min: 0,
+          max: 100,
+          step: 1,
+          value: state.volume,
+          format: (value) => `${Math.round(value)} percent`,
+          onChange: setVolume,
+        });
+
+        els.apiBaseInput.value = state.apiBase;
+        els.durationSelect.value = String(state.durationSec);
+        els.freqDown.addEventListener("click", () => setFrequency(state.freqMHz - 0.1));
+        els.freqUp.addEventListener("click", () => setFrequency(state.freqMHz + 0.1));
+        els.playButton.addEventListener("click", startEpisode);
+        document.querySelectorAll("[data-volume-preset]").forEach((button) => {
+          button.addEventListener("click", () => setVolume(Number(button.dataset.volumePreset)));
+        });
+        els.modeMock.addEventListener("click", () => {
+          state.mode = "mock";
+          try {
+            localStorage.setItem("vibefm.mode", state.mode);
+          } catch {}
+          render();
+        });
+        els.modeReal.addEventListener("click", () => {
+          state.mode = "real";
+          try {
+            localStorage.setItem("vibefm.mode", state.mode);
+          } catch {}
+          render();
+        });
+        els.durationSelect.addEventListener("change", () => {
+          state.durationSec = Number(els.durationSelect.value) || 120;
+          try {
+            localStorage.setItem("vibefm.durationSec", String(state.durationSec));
+          } catch {}
+          render();
+        });
+        els.apiBaseInput.addEventListener("input", () => {
+          state.apiBase = cleanApiBase(els.apiBaseInput.value);
+          try {
+            localStorage.setItem("vibefm.apiBase", state.apiBase);
+          } catch {}
+          clearTimeout(apiCheckTimer);
+          apiCheckTimer = setTimeout(checkApi, 350);
+          render();
+        });
+        window.addEventListener("resize", buildAnalyzer);
+        buildAnalyzer();
+        render();
+        startTimer();
+        requestAnimationFrame(animateAnalyzer);
+        checkApi();
+      }
+
+      document.addEventListener("DOMContentLoaded", boot);
+    </script>
+    <template id="__bundler_thumbnail">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+        <rect width="200" height="200" fill="#111616" />
+        <rect x="24" y="42" width="152" height="112" rx="8" fill="#c8ad76" />
+        <rect x="54" y="62" width="92" height="52" rx="5" fill="#061b1d" />
+        <circle cx="50" cy="128" r="18" fill="#8d6330" />
+        <circle cx="150" cy="128" r="18" fill="#8d6330" />
+        <path d="M75 86h30" stroke="#79d0c3" stroke-width="5" stroke-linecap="round" />
+        <path d="M111 86h14" stroke="#ffc15d" stroke-width="5" stroke-linecap="round" />
+      </svg>
+    </template>
+  </body>
 </html>

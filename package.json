@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "dev:frontend": "pnpm --dir frontend dev",
+    "build:frontend": "pnpm --dir frontend build",
+    "preview:frontend": "pnpm --dir frontend preview"
+  }
+}

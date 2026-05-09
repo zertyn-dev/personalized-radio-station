@@ -31,36 +31,15 @@ frontend/  Console-7 static prototype, styles, scripts, and fonts
 ```bash
 cd backend
 uv sync
-cp config.example.yaml config.yaml
 cp .env.example .env
+# Optional, only if you want to edit backend provider/fallback settings:
+cp config.example.yaml config.yaml
 ```
 
-Set the target show length in `config.yaml`:
-
-```yaml
-duration: "5 minutes"
-```
-
-Use `"unlimited"` for an open-ended episode:
-
-```yaml
-duration: "unlimited"
-```
-
-News comes from Google News searches plus normal RSS/Atom feeds. The default
-feed set includes TechCrunch, Product Hunt, and Hacker News:
-
-```yaml
-news:
-  topics:
-    - "artificial intelligence"
-    - "startups"
-    - "music technology"
-  rss_feeds:
-    - "https://techcrunch.com/feed/"
-    - "https://www.producthunt.com/feed"
-    - "https://hnrss.org/frontpage"
-```
+Radio stations are created in the UI and stored as vibes in SQLite. A vibe owns
+the station name, RSS sources, host tone, host format, and episode length.
+`config.yaml` is backend runtime config: AI/TTS provider settings plus fallback
+locale/weather values used when the UI does not send them.
 
 By default, `config.example.yaml` uses OpenRouter's Nitro route for
 `openai/gpt-oss-20b` through LiteLLM:
@@ -120,34 +99,36 @@ Provider API keys are read from environment variables such as
 
 ## Local API + Frontend
 
-Run the app server:
+Run the API server:
 
 ```bash
 cd backend
 uv run python -m personalized_radio_station.web_server
 ```
 
-Then open the stitched Console-7 frontend:
+In a second terminal, run the frontend:
 
-```text
-http://127.0.0.1:8765
+```bash
+pnpm install
+pnpm dev:frontend
 ```
 
-The backend serves the Console-7 radio UI at `/` and keeps API status JSON at
-`/api`. The older `frontend/radio_test.html` page still exists as a direct API
-test harness that can be opened with `file://`.
+Then open the Console-7 frontend:
 
-If you serve the frontend separately from `frontend/`, for example with
-`python -m http.server 8000`, still keep the app server running on
-`http://127.0.0.1:8765`. The frontend first tries its own origin for `/api`, then falls back to
-`http://127.0.0.1:8765` when it detects a static file server.
+```text
+http://127.0.0.1:5173
+```
 
-The frontend can create saved vibes through `POST /api/vibes`, start playback
-through `POST /api/episodes`, listen to `GET /api/episodes/{id}/events` with
-Server-Sent Events, and play generated audio segments through Web Audio as soon
-as each segment is ready. Demo mode is selected by default and writes normal
-episode artifacts under `backend/episodes/{episode_id}/`, but does not call LLM, TTS,
-news, or weather APIs.
+The frontend is static HTML/CSS/JS served by Vite. Tailwind runs through the
+official Vite plugin, so the HTML links `frontend/src/tailwind.css` instead of
+loading Tailwind from a browser CDN. Vite proxies `/api` to
+`http://127.0.0.1:8765`, keeping the API and frontend dev servers separate.
+
+The frontend can create saved vibes through `POST /api/vibes`, start real
+playback through `POST /api/episodes`, listen to `GET /api/episodes/{id}/events`
+with Server-Sent Events, and play generated audio segments through Web Audio as
+soon as each segment is ready. Episodes write normal artifacts under
+`backend/episodes/{episode_id}/`.
 
 The opening is intentionally written as if the station was already on air and
 you just tuned in. It should not start with a formal welcome.
@@ -164,11 +145,13 @@ backend/episodes/
     audio/
 ```
 
-The file page can also save reusable vibes, which are radio-station presets
-stored in SQLite. A vibe includes a name, optional extra preset RSS sources,
-optional custom RSS feeds, and host metadata for tone, voice gender, and
-solo/duo format. Default Google News topics and default RSS feeds still come
-from config; vibe sources are added on top. The backend exposes:
+The file page can also save reusable vibes, which are radio stations stored in
+SQLite. A vibe includes a name, default source presets, optional custom RSS
+feeds, and host metadata for tone, voice gender, and solo/duo format. Default
+source presets currently include Google News, Hacker News, TechCrunch, and
+Product Hunt. When an episode is started from a vibe, that vibe's sources are
+the station sources; backend config is not used as a hidden station playlist.
+The backend exposes:
 
 ```text
 GET  /api/vibes
@@ -180,7 +163,7 @@ Create an episode from a saved vibe by passing its id:
 
 ```json
 {
-  "mode": "mock",
+  "mode": "real",
   "vibe_id": "builder-radio-a1b2c3",
   "duration_minutes": 2
 }
@@ -196,13 +179,14 @@ script-ready, segment-ready, completion, or failure event includes
 `elapsed_seconds`, which helps identify whether startup time is source fetching,
 script generation, TTS, or audio playback scheduling.
 
-Real mode uses `config.yaml` and `.env` from the current working directory.
+Real mode uses the selected UI vibe for station settings, plus `config.yaml` and
+`.env` from the current working directory for provider settings and secrets.
 
-When the frontend sends `"mode": "real"`, the server validates runtime
-requirements, fetches Google News, configured RSS/Atom feeds, and Open-Meteo weather, generates the
-script with the configured LiteLLM model, renders TTS with the configured
-provider, emits `segment_ready` events as each TTS segment is written, and serves
-the final stitched episode audio when complete.
+The frontend sends `"mode": "real"`. The server validates runtime requirements,
+fetches the vibe's RSS/Atom feeds and Open-Meteo weather, generates the script
+with the configured LiteLLM model, renders TTS with the configured provider,
+emits `segment_ready` events as each TTS segment is written, and serves the
+final stitched episode audio when complete.
 
 ## TTS
 
@@ -365,17 +349,19 @@ Treat the HTML as the **source of truth for visuals and interactions** — extra
 
 ```
 frontend/
-├── Console-7 Radio.html            ← entry HTML (loads React + radio.jsx via Babel)
-├── radio.jsx                       ← all React components + main app
-├── stations.js                     ← seeded station library (window.STATIONS)
-├── styles.css                      ← all device styling (~1080 lines)
-├── colors_and_type.css             ← design tokens (colors, fonts, radii, type scale)
+├── Console-7 Radio.html            ← static HTML entry
+├── src/tailwind.css                ← Tailwind v4 CSS entry
+├── vite.config.js                  ← frontend dev server + /api proxy
+├── radio.jsx                       ← legacy React prototype, no longer loaded
+├── styles.css                      ← legacy prototype styles
+├── colors_and_type.css             ← shared font-face + token definitions
 └── fonts/
     ├── geist-sans/                 ← Geist Sans (SIL OFL)
     └── plex-mono/                  ← IBM Plex Mono (SIL OFL)
 ```
 
-To preview locally: serve the folder from any static server (`python -m http.server`, `npx serve`, etc.) and open `Console-7 Radio.html`. It must be served over HTTP — opening the file directly will fail because of CORS on the font files.
+To preview locally, run the Python API on `127.0.0.1:8765`, then run
+`pnpm dev:frontend` and open `http://127.0.0.1:5173`.
 
 ---
 
@@ -560,8 +546,8 @@ Top-level state in the main `Radio` component:
 const [playing, setPlaying]     = useState(false);
 const [freqMHz, setFreqMHz]     = useState(88.3);
 const [timerSec, setTimerSec]   = useState(0);
-const [stations, setStations]   = useState(DEFAULT_STATIONS);
-const [editingId, setEditingId] = useState(stations[0].id);
+const [stations, setStations]   = useState([]);
+const [editingId, setEditingId] = useState("");
 const [isOpen, setIsOpen]       = useState(false);  // settings panel
 const [settingsTab, setSettingsTab] = useState("vibes");
 ```
@@ -683,19 +669,21 @@ Analyzer interval: 80ms. Each tick generates a new bell-curve-weighted random le
 ## Implementation notes for porting
 
 1. **Knob component:** the trickiest piece. Test drag, scroll, and keyboard (arrow keys) interactions; consider extracting into a reusable `<RotaryKnob>`. Use `Pointer Events`, not separate mouse/touch.
-2. **Analyzer:** the random-walk algorithm is in `radio.jsx` — keep the bell-curve weighting toward center columns or it looks uniformly noisy. Animation loop should use `requestAnimationFrame` in production (the prototype uses `setInterval` for simplicity).
+2. **Analyzer:** the current analyzer loop is inline in `Console-7 Radio.html`; keep the bell-curve weighting toward center columns or it looks uniformly noisy. Animation should use `requestAnimationFrame`.
 3. **Grille hinge:** requires `perspective` on a parent and `transform-origin: top` on the grille. The settings panel must already be rendered behind the grille, not appear after — otherwise the reveal doesn't work.
 4. **Display analyzer:** sits at `z-index: 0` inside `.display`; readout rows are `z-index: 2`; scanline overlay (`::before`) is `z-index: 3`. Keep this stack.
 5. **Responsive scaling:** the chassis is fixed at 920px. The `--device-scale` variable on `:root` is a CSS-only zoom; consider real responsive layout for production (collapse to a single-column at small viewports).
-6. **State persistence:** the prototype loses state on reload. In production, persist `stations`, `editingId`, and last-tuned `freqMHz` to localStorage or your app's store.
-7. **API integration:** RSS feeds, voice generation (TTS), and audio playback are all stubbed. The settings UI captures the configuration; wire it up to your actual broadcast pipeline.
+6. **State persistence:** saved vibes come from the backend. Persist last-tuned `freqMHz` locally if desired.
+7. **API integration:** RSS feeds, voice generation (TTS), and audio playback are wired through the local backend.
 8. **Accessibility:** add ARIA labels to knobs (`role="slider"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`), keyboard support (arrow keys = step, home/end = min/max), and a screen-reader-only text alternative for the analyzer.
 
 ---
 
-## Default station library
+## Default sources
 
-`stations.js` exposes `window.STATIONS` — 7 seeded vibes used as the initial library. Each has `freq`, `name`, `tag`, `desc`, and a sample `tracks` array. The radio's `DEFAULT_STATIONS` (in `radio.jsx`) is a slightly different shape (with `mhz`, `hosts`, `voiceA/B`, `tone`, `urls`) used for the editor — port both shapes if you want to reuse the seeding.
+New vibes start with source presets supplied by the backend: Google News,
+Hacker News, TechCrunch, and Product Hunt. Custom RSS feeds can be added per
+vibe in the UI.
 
 ---
 

@@ -15,6 +15,10 @@ from .hosts import host_style
 
 
 PRESET_RSS_SOURCES: dict[str, dict[str, str]] = {
+    "google_news": {
+        "label": "Google News",
+        "url": "https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en",
+    },
     "hacker_news": {
         "label": "Hacker News",
         "url": "https://hnrss.org/frontpage",
@@ -29,7 +33,12 @@ PRESET_RSS_SOURCES: dict[str, dict[str, str]] = {
     },
 }
 
+DEFAULT_SOURCE_PRESET_IDS = tuple(PRESET_RSS_SOURCES)
+
 _PRESET_ALIASES = {
+    "google": "google_news",
+    "google_news": "google_news",
+    "googlenews": "google_news",
     "hn": "hacker_news",
     "hackernews": "hacker_news",
     "hacker_news": "hacker_news",
@@ -138,11 +147,14 @@ class VibeStore:
         custom_rss_feeds = _clean_rss_feeds(
             payload.get("custom_rss_feeds", payload.get("rss_feeds", payload.get("rss")))
         )
-        source_preset_ids = _clean_preset_ids(
-            payload.get(
-                "source_preset_ids",
-                payload.get("source_presets", payload.get("preset_sources")),
-            )
+        preset_value = payload.get(
+            "source_preset_ids",
+            payload.get("source_presets", payload.get("preset_sources")),
+        )
+        source_preset_ids = (
+            _clean_preset_ids(preset_value)
+            if preset_value is not None
+            else list(DEFAULT_SOURCE_PRESET_IDS)
         )
 
         now = _now()
