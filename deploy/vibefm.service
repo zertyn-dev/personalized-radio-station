@@ -1,0 +1,32 @@
+[Unit]
+Description=VibeFM personalized radio backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vibefm
+Group=vibefm
+WorkingDirectory=/opt/vibefm/backend
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/vibefm
+ExecStart=/usr/local/bin/uv run --directory /opt/vibefm/backend python -m personalized_radio_station.web_server \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --output-dir /var/lib/vibefm/episodes \
+  --db /var/lib/vibefm/vibefm.sqlite3 \
+  --env /opt/vibefm/.env \
+  --config /opt/vibefm/backend/config.example.yaml
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/vibefm
+
+[Install]
+WantedBy=multi-user.target

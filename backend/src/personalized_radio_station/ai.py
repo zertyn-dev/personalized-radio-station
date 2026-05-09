@@ -8,9 +8,14 @@ from .config import AiConfig
 
 
 Message = dict[str, str]
+ApiKeys = dict[str, str]
 
 
-def generate_text(messages: list[Message], config: AiConfig) -> str:
+def generate_text(
+    messages: list[Message],
+    config: AiConfig,
+    api_keys: ApiKeys | None = None,
+) -> str:
     if config.model == "mock":
         return _mock_completion(messages)
 
@@ -29,7 +34,7 @@ def generate_text(messages: list[Message], config: AiConfig) -> str:
     if config.api_base:
         kwargs["api_base"] = config.api_base
     if config.api_key_env:
-        api_key = os.environ.get(config.api_key_env)
+        api_key = _resolve_api_key(config.api_key_env, api_keys)
         if not api_key:
             raise RuntimeError(f"Missing {config.api_key_env} for LiteLLM.")
         kwargs["api_key"] = api_key
@@ -44,6 +49,14 @@ def generate_text(messages: list[Message], config: AiConfig) -> str:
         raise RuntimeError(_empty_response_message(response, config))
 
     return content
+
+
+def _resolve_api_key(env_name: str, api_keys: ApiKeys | None) -> str | None:
+    if api_keys:
+        value = api_keys.get(env_name)
+        if value:
+            return value
+    return os.environ.get(env_name)
 
 
 def _add_reasoning_options(kwargs: dict[str, Any], config: AiConfig) -> None:

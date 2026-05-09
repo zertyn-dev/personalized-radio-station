@@ -18,6 +18,17 @@ class TtsResult:
 
 
 SegmentReadyCallback = Callable[[int, dict[str, Any], Path], None]
+ApiKeys = dict[str, str]
+
+
+def _resolve_api_key(env_name: str | None, api_keys: ApiKeys | None) -> str | None:
+    if not env_name:
+        return None
+    if api_keys:
+        value = api_keys.get(env_name)
+        if value:
+            return value
+    return os.environ.get(env_name)
 
 
 def synthesize_episode(
@@ -25,6 +36,7 @@ def synthesize_episode(
     config: AppConfig,
     episode_dir: Path,
     on_segment_ready: SegmentReadyCallback | None = None,
+    api_keys: ApiKeys | None = None,
 ) -> TtsResult:
     if not config.tts.enabled:
         return TtsResult(segment_files=[], episode_file=None)
@@ -43,12 +55,15 @@ def synthesize_episode(
         voice_name, voice = _resolve_voice(voice_name, config)
         segment["voice"] = voice_name
         extension = _extension_for_provider(provider, config.tts.response_format)
-        segment_path = audio_dir / f"{index:02d}-{_slug(segment.get('type', 'segment'))}.{extension}"
+        segment_path = (
+            audio_dir
+            / f"{index:02d}-{_slug(segment.get('type', 'segment'))}.{extension}"
+        )
 
         if provider == "mock":
             _synthesize_mock(text, voice_name, segment_path)
         elif provider in {"elevenlabs", "litellm", "openai"}:
-            _synthesize_litellm_speech(text, voice, config, segment_path)
+            _synthesize_litellm_speech(text, voice, config, segment_path, api_keys)
         elif provider == "piper":
             _synthesize_piper(text, voice, config, segment_path)
         else:
@@ -63,7 +78,9 @@ def synthesize_episode(
     if segment_files and all(path.suffix == ".wav" for path in segment_files):
         episode_file = concatenate_wavs(segment_files, episode_dir / "episode.wav")
     elif segment_files and all(path.suffix == ".mp3" for path in segment_files):
-        episode_file = concatenate_audio_files(segment_files, episode_dir / "episode.mp3")
+        episode_file = concatenate_audio_files(
+            segment_files, episode_dir / "episode.mp3"
+        )
 
     return TtsResult(segment_files=segment_files, episode_file=episode_file)
 
@@ -96,7 +113,11 @@ def _synthesize_mock(text: str, voice_name: str, output_path: Path) -> None:
 
 
 def _synthesize_litellm_speech(
-    text: str, voice: TtsVoiceConfig, config: AppConfig, output_path: Path
+    text: str,
+    voice: TtsVoiceConfig,
+    config: AppConfig,
+    output_path: Path,
+    api_keys: ApiKeys | None = None,
 ) -> None:
     try:
         from litellm import speech
@@ -105,7 +126,11 @@ def _synthesize_litellm_speech(
             "LiteLLM is not installed. From backend/, install dependencies with `uv sync`."
         ) from exc
 
-    api_key = os.environ.get(config.tts.api_key_env) if config.tts.api_key_env else None
+    api_key = (
+        _resolve_api_key(config.tts.api_key_env, api_keys)
+        if config.tts.api_key_env
+        else None
+    )
     if config.tts.api_key_env and not api_key:
         raise RuntimeError(f"Missing {config.tts.api_key_env} for LiteLLM TTS.")
 
@@ -151,7 +176,9 @@ def _synthesize_piper(
             check=True,
         )
     except FileNotFoundError as exc:
-        raise RuntimeError(f"Piper executable not found: {config.tts.piper_path}") from exc
+        raise RuntimeError(
+            f"Piper executable not found: {config.tts.piper_path}"
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"Piper TTS failed: {exc.stderr}") from exc
 
@@ -174,7 +201,9 @@ def _extension_for_provider(provider: str, response_format: str) -> str:
 
 def _litellm_tts_model(config: AppConfig) -> str:
     model = config.tts.model
-    if config.tts.provider.lower() == "elevenlabs" and not model.startswith("elevenlabs/"):
+    if config.tts.provider.lower() == "elevenlabs" and not model.startswith(
+        "elevenlabs/"
+    ):
         return f"elevenlabs/{model}"
     if config.tts.provider.lower() == "openai" and "/" not in model:
         return f"openai/{model}"

@@ -100,7 +100,9 @@ class EpisodeJob:
                 }
                 for segment in self.segments
             ],
-            "audio_url": f"/api/episodes/{self.id}/audio" if self.final_audio_path else None,
+            "audio_url": f"/api/episodes/{self.id}/audio"
+            if self.final_audio_path
+            else None,
             "events_url": f"/api/episodes/{self.id}/events",
             "error": self.error,
         }
@@ -124,6 +126,7 @@ class EpisodeService:
         self._lock = threading.Lock()
 
     def create_episode(self, payload: dict[str, Any]) -> EpisodeJob:
+        api_keys = _extract_api_keys(payload)
         payload = self._apply_vibe_to_payload(payload)
         episode_id = _new_episode_id()
         now = _now()
@@ -144,9 +147,14 @@ class EpisodeService:
             self._jobs[episode_id] = job
 
         self._emit(job, "status", {"status": "queued", "message": "Queued"})
+        target = (
+            self._generate_real_episode
+            if mode == "real"
+            else self._generate_mock_episode
+        )
         thread = threading.Thread(
-            target=self._generate_real_episode if mode == "real" else self._generate_mock_episode,
-            args=(job, payload),
+            target=target,
+            args=(job, payload, api_keys),
             name=f"radio-episode-{episode_id}",
             daemon=True,
         )
@@ -170,14 +178,19 @@ class EpisodeService:
 
         return _episode_payload_from_vibe(payload, vibe)
 
-    def _generate_real_episode(self, job: EpisodeJob, payload: dict[str, Any]) -> None:
+    def _generate_real_episode(
+        self,
+        job: EpisodeJob,
+        payload: dict[str, Any],
+        api_keys: dict[str, str] | None = None,
+    ) -> None:
         try:
             load_env_file(self.env_path)
             config_path = _resolve_config_path(self.config_path)
             config = _apply_payload_to_config(load_config(config_path), payload)
 
             self._set_status(job, "checking_runtime", "Checking runtime requirements")
-            assert_runtime_ready(config, include_tts=True)
+            assert_runtime_ready(config, include_tts=True, api_keys=api_keys)
 
             self._set_status(
                 job,
@@ -199,12 +212,16 @@ class EpisodeService:
                 + "\n"
             )
 
-            self._set_status(job, "generating_script", f"Generating script with {config.ai.model}")
-            episode = generate_script(news_items, weather, config)
+            self._set_status(
+                job, "generating_script", f"Generating script with {config.ai.model}"
+            )
+            episode = generate_script(news_items, weather, config, api_keys=api_keys)
             script_words = count_episode_words(episode)
             episode["timing"] = episode_timing_metadata(config, script_words)
             self._prepare_public_segments(job, episode)
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._emit(
                 job,
@@ -225,32 +242,49 @@ class EpisodeService:
                     episode,
                     config,
                     job.output_dir,
-                    on_segment_ready=lambda index, segment, path: self._mark_segment_ready(
-                        job, index, segment, path
+                    on_segment_ready=lambda index, segment, path: (
+                        self._mark_segment_ready(job, index, segment, path)
                     ),
+                    api_keys=api_keys,
                 )
                 if tts_result.episode_file:
                     episode["audio_file"] = tts_result.episode_file.name
-                    add_audio_timing(episode, tts_result.episode_file, script_words, config)
+                    add_audio_timing(
+                        episode, tts_result.episode_file, script_words, config
+                    )
                     with job.condition:
                         job.final_audio_path = tts_result.episode_file
             else:
                 self._set_status(job, "audio_disabled", "TTS is disabled")
 
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._set_status(
                 job,
                 "complete",
                 "Complete",
-                extra={"audio_url": f"/api/episodes/{job.id}/audio" if job.final_audio_path else None},
+                extra={
+                    "audio_url": f"/api/episodes/{job.id}/audio"
+                    if job.final_audio_path
+                    else None
+                },
             )
         except Exception as exc:  # pragma: no cover - defensive for background thread
             with job.condition:
                 job.error = str(exc)
-            self._set_status(job, "failed", "Generation failed", extra={"error": str(exc)})
+            self._set_status(
+                job, "failed", "Generation failed", extra={"error": str(exc)}
+            )
 
-    def _generate_mock_episode(self, job: EpisodeJob, payload: dict[str, Any]) -> None:
+    def _generate_mock_episode(
+        self,
+        job: EpisodeJob,
+        payload: dict[str, Any],
+        api_keys: dict[str, str] | None = None,
+    ) -> None:
+        del api_keys
         try:
             self._set_status(job, "fetching_sources", "Collecting test sources")
             self._sleep()
@@ -290,7 +324,9 @@ class EpisodeService:
                     for topic in topics
                 ],
             }
-            (job.output_dir / "sources.json").write_text(json.dumps(sources, indent=2) + "\n")
+            (job.output_dir / "sources.json").write_text(
+                json.dumps(sources, indent=2) + "\n"
+            )
 
             self._set_status(job, "generating_script", "Writing a test script")
             self._sleep()
@@ -304,7 +340,9 @@ class EpisodeService:
                 host_format=_clean_host_format(payload.get("host_format")),
             )
             self._prepare_public_segments(job, episode)
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._emit(
                 job,
@@ -331,15 +369,21 @@ class EpisodeService:
                 duration_seconds = audio_duration_seconds(segment_path)
                 segment["audio_file"] = str(segment_path.relative_to(job.output_dir))
                 segment_paths.append(segment_path)
-                self._mark_segment_ready(job, index, segment, segment_path, duration_seconds)
+                self._mark_segment_ready(
+                    job, index, segment, segment_path, duration_seconds
+                )
 
-            final_audio = concatenate_wavs(segment_paths, job.output_dir / "episode.wav")
+            final_audio = concatenate_wavs(
+                segment_paths, job.output_dir / "episode.wav"
+            )
             episode["audio_file"] = final_audio.name
             episode["timing"] = {
                 "target_duration": duration,
                 "audio_duration_seconds": audio_duration_seconds(final_audio),
             }
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             with job.condition:
                 job.final_audio_path = final_audio
 
@@ -352,9 +396,13 @@ class EpisodeService:
         except Exception as exc:  # pragma: no cover - defensive for background thread
             with job.condition:
                 job.error = str(exc)
-            self._set_status(job, "failed", "Generation failed", extra={"error": str(exc)})
+            self._set_status(
+                job, "failed", "Generation failed", extra={"error": str(exc)}
+            )
 
-    def _prepare_public_segments(self, job: EpisodeJob, episode: dict[str, Any]) -> None:
+    def _prepare_public_segments(
+        self, job: EpisodeJob, episode: dict[str, Any]
+    ) -> None:
         with job.condition:
             job.title = str(episode.get("title", "VibeFM"))
             job.segments = [
@@ -477,7 +525,10 @@ def serve(
     )
     address, actual_port = server.server_address
     print(f"[vibefm] API listening on http://{address}:{actual_port}", flush=True)
-    print("[vibefm] Demo mode is free; real mode uses configured model and TTS APIs.", flush=True)
+    print(
+        "[vibefm] Demo mode is free; real mode uses configured model and TTS APIs.",
+        flush=True,
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -496,9 +547,15 @@ def main() -> None:
         default=Path("episodes"),
         help="Directory where API-generated episode artifacts are saved.",
     )
-    parser.add_argument("--config", type=Path, default=Path("config.yaml"), help="Path to config YAML.")
-    parser.add_argument("--env", type=Path, default=Path(".env"), help="Path to .env file.")
-    parser.add_argument("--db", type=Path, default=None, help="SQLite database path for saved vibes.")
+    parser.add_argument(
+        "--config", type=Path, default=Path("config.yaml"), help="Path to config YAML."
+    )
+    parser.add_argument(
+        "--env", type=Path, default=Path(".env"), help="Path to .env file."
+    )
+    parser.add_argument(
+        "--db", type=Path, default=None, help="SQLite database path for saved vibes."
+    )
     args = parser.parse_args()
 
     serve(
@@ -543,7 +600,11 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         if len(parts) == 3 and parts[:2] == ["api", "episodes"]:
             self._send_episode_status(parts[2])
             return
-        if len(parts) == 4 and parts[:2] == ["api", "episodes"] and parts[3] == "events":
+        if (
+            len(parts) == 4
+            and parts[:2] == ["api", "episodes"]
+            and parts[3] == "events"
+        ):
             self._send_episode_events(parts[2])
             return
         if len(parts) == 4 and parts[:2] == ["api", "episodes"] and parts[3] == "audio":
@@ -560,7 +621,9 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
 
         frontend_path = _frontend_path(path)
         if frontend_path is not None:
-            self._send_file(frontend_path, content_type=_static_content_type(frontend_path))
+            self._send_file(
+                frontend_path, content_type=_static_content_type(frontend_path)
+            )
             return
 
         self._send_json({"error": "Not found"}, status=HTTPStatus.NOT_FOUND)
@@ -644,14 +707,19 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         try:
             while True:
                 with job.condition:
-                    while cursor >= len(job.events) and job.status not in TERMINAL_STATUSES:
+                    while (
+                        cursor >= len(job.events)
+                        and job.status not in TERMINAL_STATUSES
+                    ):
                         job.condition.wait(timeout=15)
                         if cursor >= len(job.events):
                             self.wfile.write(b": keep-alive\n\n")
                             self.wfile.flush()
                     events = job.events[cursor:]
                     cursor = len(job.events)
-                    terminal = job.status in TERMINAL_STATUSES and cursor >= len(job.events)
+                    terminal = job.status in TERMINAL_STATUSES and cursor >= len(
+                        job.events
+                    )
 
                 for event in events:
                     self.wfile.write(_format_sse(event).encode("utf-8"))
@@ -670,20 +738,28 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         try:
             index = int(index_value)
         except ValueError:
-            self._send_json({"error": "Invalid segment index"}, status=HTTPStatus.BAD_REQUEST)
+            self._send_json(
+                {"error": "Invalid segment index"}, status=HTTPStatus.BAD_REQUEST
+            )
             return
 
         with job.condition:
             if index < 0 or index >= len(job.segments):
-                self._send_json({"error": "Segment not found"}, status=HTTPStatus.NOT_FOUND)
+                self._send_json(
+                    {"error": "Segment not found"}, status=HTTPStatus.NOT_FOUND
+                )
                 return
             segment = job.segments[index]
             if segment.get("status") != "ready":
-                self._send_json({"error": "Segment is not ready"}, status=HTTPStatus.ACCEPTED)
+                self._send_json(
+                    {"error": "Segment is not ready"}, status=HTTPStatus.ACCEPTED
+                )
                 return
             audio_path = segment.get("audio_path")
             if not audio_path:
-                self._send_json({"error": "Segment audio is missing"}, status=HTTPStatus.NOT_FOUND)
+                self._send_json(
+                    {"error": "Segment audio is missing"}, status=HTTPStatus.NOT_FOUND
+                )
                 return
             segment_path = job.output_dir / str(audio_path)
 
@@ -699,7 +775,9 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         if not final_audio_path:
             self._send_json({"error": "Audio is not ready"}, status=HTTPStatus.ACCEPTED)
             return
-        self._send_file(final_audio_path, content_type=_audio_content_type(final_audio_path))
+        self._send_file(
+            final_audio_path, content_type=_audio_content_type(final_audio_path)
+        )
 
     def _send_file(self, path: Path, content_type: str) -> None:
         if not path.exists():
@@ -882,11 +960,7 @@ def _clean_string(value: Any, fallback: str) -> str:
 
 
 def _clean_topics(value: Any, fallback: list[str] | None = None) -> list[str]:
-    default_topics = (
-        fallback
-        if fallback is not None
-        else list(DEFAULT_NEWS_TOPICS)
-    )
+    default_topics = fallback if fallback is not None else list(DEFAULT_NEWS_TOPICS)
     if not isinstance(value, list):
         return default_topics
     topics = [str(item).strip() for item in value if str(item).strip()]
@@ -937,7 +1011,9 @@ def _apply_payload_to_config(config: AppConfig, payload: dict[str, Any]) -> AppC
     news = config.news
     if "topics" in payload:
         topic_fallback = [] if payload.get("replace_topics") else None
-        news = replace(news, topics=_clean_topics(payload.get("topics"), topic_fallback))
+        news = replace(
+            news, topics=_clean_topics(payload.get("topics"), topic_fallback)
+        )
     rss_feeds = _clean_rss_feeds(
         payload.get("rss_feeds", payload.get("rss_urls", payload.get("rss")))
     )
@@ -987,6 +1063,22 @@ def _resolve_config_path(path: Path) -> Path:
     return path
 
 
+def _extract_api_keys(payload: dict[str, Any]) -> dict[str, str]:
+    raw = payload.pop("api_keys", None)
+    if not isinstance(raw, dict):
+        return {}
+    keys: dict[str, str] = {}
+    for name, value in raw.items():
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if not isinstance(value, str):
+            continue
+        cleaned = value.strip()
+        if cleaned:
+            keys[name.strip()] = cleaned
+    return keys
+
+
 def _optional_string(value: Any) -> str | None:
     if value is None:
         return None
@@ -1026,7 +1118,9 @@ def _dedupe_strings(values: list[str]) -> list[str]:
     return deduped
 
 
-def _duration_from_payload(payload: dict[str, Any], fallback: str | None = None) -> str | None:
+def _duration_from_payload(
+    payload: dict[str, Any], fallback: str | None = None
+) -> str | None:
     duration_minutes = payload.get("duration_minutes")
     if duration_minutes is not None and duration_minutes != "":
         minutes = int(float(duration_minutes))
