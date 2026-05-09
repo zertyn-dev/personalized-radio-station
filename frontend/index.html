@@ -9,2262 +9,355 @@
       content="VibeFM is a personal AI radio interface with analog tuning, duration, and volume controls."
     />
     <link rel="stylesheet" href="/src/tailwind.css" />
+    <link rel="stylesheet" href="./colors_and_type.css" />
+    <link rel="stylesheet" href="./styles.css" />
     <style>
-      @font-face {
-        font-family: "Geist";
-        font-weight: 400;
-        font-display: swap;
-        src: url("./fonts/geist-sans/Geist-Regular.woff2") format("woff2");
-      }
-
-      @font-face {
-        font-family: "Geist";
-        font-weight: 700;
-        font-display: swap;
-        src: url("./fonts/geist-sans/Geist-Bold.woff2") format("woff2");
-      }
-
-      @font-face {
-        font-family: "IBM Plex Mono";
-        font-weight: 400;
-        font-display: swap;
-        src: url("./fonts/plex-mono/IBMPlexMono-Regular.woff2") format("woff2");
-      }
-
-      @font-face {
-        font-family: "IBM Plex Mono";
-        font-weight: 600;
-        font-display: swap;
-        src: url("./fonts/plex-mono/IBMPlexMono-SemiBold.woff2") format("woff2");
-      }
-
-      :root {
-        --paper: #f4ead0;
-        --paper-edge: #f7eed5;
-        --brass: #d9c7a3;
-        --brass-dark: #6e5e3f;
-        --ink: #1a140a;
-        --ink-2: #3a2c14;
-        --ink-mid: #6b5c3f;
-        --screen: #1a0c03;
-        --screen-deep: #0a0502;
-        --amber: #ffb347;
-        --amber-hi: #ffd58a;
-        --amber-deep: #6e3c08;
-        --rust: #c5481e;
-        --rust-deep: #8d2f10;
-        --red: #c5481e;
-      }
-
-      * {
-        box-sizing: border-box;
-        letter-spacing: 0;
-      }
-
-      html,
-      body {
-        min-height: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-      }
-
-      body {
-        margin: 0;
-        color: var(--paper);
-        font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
-        font-variant-numeric: tabular-nums;
-        background:
-          radial-gradient(ellipse at 50% -20%, rgba(255, 179, 71, 0.1), transparent 48%),
-          linear-gradient(135deg, #17191c 0%, #11161b 48%, #0e1015 100%);
-        -webkit-font-smoothing: antialiased;
-      }
-
-      body::after {
-        content: "";
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        pointer-events: none;
-        opacity: 0.12;
-        background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 4px);
-        mix-blend-mode: overlay;
-      }
-
       button,
       input,
       select {
         font: inherit;
       }
 
-      .console {
-        width: min(1120px, 100%);
-        max-width: 100%;
-        overflow: hidden;
-        border: 1px solid rgba(255, 240, 198, 0.28);
-        border-radius: 8px;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.08) 16%, rgba(60, 40, 15, 0.2)),
-          linear-gradient(180deg, #f6ecd1 0%, #e3d2a8 60%, #c8b585 100%);
-        box-shadow:
-          0 36px 88px rgba(0, 0, 0, 0.58),
-          0 12px 0 rgba(0, 0, 0, 0.24),
-          inset 0 1px 0 rgba(255, 255, 255, 0.72),
-          inset 0 -2px 0 rgba(43, 30, 16, 0.42);
+      .tab-panel[hidden] {
+        display: none;
       }
 
-      .top-rail,
-      .readout,
-      .black-well {
-        border: 1px solid rgba(0, 0, 0, 0.72);
-        background:
-          linear-gradient(180deg, rgba(255, 179, 71, 0.07), transparent 48%),
-          linear-gradient(180deg, #1d150a 0%, #0e0a05 100%);
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.08),
-          inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+      .top-bar .knob {
+        width: 88px;
+        height: 88px;
       }
 
-      .panel {
-        min-width: 0;
-        border: 1px solid rgba(42, 29, 15, 0.44);
-        border-radius: 8px;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.08) 30%, rgba(60, 40, 15, 0.14)),
-          #e3d2a8;
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.55),
-          inset 0 -1px 0 rgba(42, 29, 15, 0.28),
-          0 8px 18px rgba(31, 22, 11, 0.22);
+      .display-analyzer.analyzer {
+        position: absolute;
+        inset: 8px 14px 10px 14px;
+        height: auto;
+        gap: 2px;
+        z-index: 1;
       }
 
-      .label {
+      .display .disp-row,
+      .display .tuner-strip {
+        z-index: 4;
+      }
+
+      .disp-eyebrow,
+      .disp-station,
+      .disp-time,
+      .display .tnum,
+      .display .tst {
+        color: var(--amber-hi) !important;
+        opacity: 1 !important;
+        text-shadow: 0 0 6px rgba(255, 179, 71, 0.9), 0 0 16px rgba(255, 140, 40, 0.55);
+      }
+
+      .display .disp-eyebrow,
+      .display .tst:not(.active),
+      .display .tnum {
+        color: var(--amber) !important;
+      }
+
+      .settings-note {
         margin: 0;
         color: var(--ink-mid);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-        font-size: 0.72rem;
-        font-weight: 600;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
       }
 
-      .screen {
-        position: relative;
-        min-width: 0;
-        max-width: 100%;
-        min-height: 334px;
-        overflow: hidden;
-        border: 1px solid rgba(0, 0, 0, 0.88);
-        border-radius: 8px;
-        background:
-          radial-gradient(ellipse at 50% 40%, #3b1d08 0%, var(--screen) 70%, var(--screen-deep) 100%);
-        box-shadow:
-          inset 0 0 0 1px rgba(0, 0, 0, 0.74),
-          inset 0 0 42px rgba(0, 0, 0, 0.86),
-          inset 0 1px 0 rgba(255, 179, 71, 0.06),
-          0 2px 0 rgba(255, 255, 255, 0.22),
-          0 16px 24px rgba(0, 0, 0, 0.3);
-      }
-
-      .screen-layout {
-        position: relative;
-        z-index: 2;
+      .settings-volume {
         display: grid;
-        grid-template-rows: auto minmax(0, 1fr) auto;
-        gap: 0.8rem;
-        height: 100%;
-      }
-
-      .screen-header,
-      .screen-bottom,
-      .screen-stats {
-        min-width: 0;
-      }
-
-      .screen-frequency {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 0.32rem;
-        min-width: 92px;
-        justify-content: flex-end;
-        color: var(--amber-hi);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-        font-size: 1.08rem;
-        font-weight: 600;
-        letter-spacing: 0;
-        text-shadow: 0 0 6px rgba(255, 179, 71, 0.74), 0 0 14px rgba(255, 140, 40, 0.38);
-      }
-
-      .screen-frequency span:last-child {
-        color: var(--amber-deep);
-        font-size: 0.66rem;
-        font-weight: 600;
-      }
-
-      .screen-stage {
-        position: relative;
-        min-width: 0;
-        min-height: 0;
-        display: grid;
-      }
-
-      .tuning-focus,
-      .visual-focus {
-        grid-area: 1 / 1;
-        min-width: 0;
-        min-height: 0;
-        transition: opacity 180ms ease, transform 180ms ease;
-      }
-
-      .tuning-focus {
-        display: grid;
-        align-content: center;
-        gap: 0.45rem;
-      }
-
-      .visual-focus {
-        display: grid;
-        grid-template-rows: minmax(54px, 1fr) auto;
-        gap: 0.62rem;
-        align-content: stretch;
-      }
-
-      .screen:not(.tuning) .tuning-focus,
-      .screen.tuning .visual-focus {
-        opacity: 0;
-        pointer-events: none;
-        transform: translateY(6px);
-      }
-
-      .screen.tuning .tuning-focus,
-      .screen:not(.tuning) .visual-focus {
-        opacity: 1;
-        pointer-events: auto;
-        transform: translateY(0);
-      }
-
-      .screen-stats {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        gap: 0.5rem;
-        align-items: end;
-      }
-
-      .screen-stat {
-        border: 1px solid rgba(255, 179, 71, 0.22);
-        border-radius: 4px;
-        padding: 0.42rem 0.5rem;
-        background: rgba(255, 179, 71, 0.04);
-      }
-
-      .screen::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 5;
-        pointer-events: none;
-        background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(0, 0, 0, 0.28) 2px, rgba(0, 0, 0, 0.28) 3px);
-        mix-blend-mode: multiply;
-      }
-
-      .lcd {
-        color: var(--amber);
-        text-shadow: 0 0 6px rgba(255, 179, 71, 0.7), 0 0 14px rgba(255, 140, 40, 0.34);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-      }
-
-      .amber {
-        color: var(--amber-hi);
-        text-shadow: 0 0 6px rgba(255, 179, 71, 0.7), 0 0 14px rgba(255, 140, 40, 0.36);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-      }
-
-      .freq {
-        color: var(--amber-hi);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-        font-size: 4.75rem;
-        line-height: 0.94;
-        text-shadow: 0 0 8px rgba(255, 179, 71, 0.86), 0 0 24px rgba(255, 140, 40, 0.42);
-      }
-
-      .dial-wrap {
-        --dial-size: 154px;
-        position: relative;
-        width: var(--dial-size);
-        height: var(--dial-size);
-        margin-inline: auto;
-      }
-
-      .dial {
-        --angle: -135deg;
-        position: absolute;
-        inset: 18px;
-        border: 1px solid rgba(0, 0, 0, 0.86);
-        border-radius: 999px;
-        cursor: grab;
-        touch-action: none;
-        background: #8f6834;
-        box-shadow:
-          inset 0 0 0 8px #4b3218,
-          inset 0 0 0 10px rgba(15, 11, 6, 0.78),
-          0 9px 0 rgba(59, 39, 20, 0.74),
-          0 15px 22px rgba(28, 19, 9, 0.34);
-        outline: none;
-      }
-
-      .dial:focus-visible {
-        outline: 2px solid rgba(18, 18, 18, 0.74);
-        outline-offset: 4px;
-      }
-
-      .dial::before {
-        content: "";
-        position: absolute;
-        inset: 18px;
-        border: 1px solid rgba(18, 14, 9, 0.62);
-        border-radius: inherit;
-      }
-
-      .dial::after {
-        content: "";
-        position: absolute;
-        left: 50%;
-        top: 17px;
-        width: 4px;
-        height: 38px;
-        border-radius: 999px;
-        background: #f2ddb0;
-        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
-        transform: translateX(-50%) rotate(var(--angle));
-        transform-origin: 50% 51px;
-      }
-
-      .tick {
-        position: absolute;
-        width: 2px;
-        height: 9px;
-        border-radius: 999px;
-        background: rgba(32, 24, 14, 0.42);
-      }
-
-      .tick.major {
-        height: 14px;
-        background: rgba(20, 14, 8, 0.76);
-      }
-
-      .dial-value {
-        min-width: 126px;
-        border: 1px solid rgba(20, 14, 8, 0.68);
-        border-radius: 4px;
-        background: #11100d;
-        color: var(--amber);
-        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.64), 0 2px 0 rgba(58, 40, 19, 0.28);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-      }
-
-      .meter {
-        border: 1px solid rgba(20, 14, 8, 0.56);
-        border-radius: 5px;
-        background: #ead9b3;
-        box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.28);
-      }
-
-      .meter-fill {
-        height: 100%;
-        width: 0%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, #5f9472, #e6b04a, #c64a2c);
-      }
-
-      .tuner {
-        position: relative;
-        min-width: 0;
-        max-width: 100%;
-        overflow: hidden;
-        height: 86px;
-        border: 1px solid rgba(255, 179, 71, 0.2);
-        border-radius: 5px;
-        background:
-          linear-gradient(180deg, rgba(255, 179, 71, 0.08), rgba(0, 0, 0, 0.14)),
-          repeating-linear-gradient(90deg, rgba(255, 179, 71, 0.08) 0 1px, transparent 1px 24px);
-      }
-
-      .needle {
-        position: absolute;
-        top: 10px;
-        bottom: 10px;
-        width: 2px;
-        transform: translateX(-50%);
-        background: var(--amber-hi);
-        box-shadow: 0 0 10px rgba(255, 179, 71, 0.72);
-      }
-
-      .needle::before {
-        content: "";
-        position: absolute;
-        top: -5px;
-        left: 50%;
-        width: 12px;
-        height: 8px;
-        transform: translateX(-50%);
-        clip-path: polygon(50% 100%, 0 0, 100% 0);
-        background: var(--amber-hi);
-      }
-
-      .marker {
-        position: absolute;
-        bottom: 8px;
-        width: 9px;
-        height: 9px;
-        transform: translateX(-50%);
-        border: 1px solid rgba(255, 179, 71, 0.34);
-        border-radius: 999px;
-        background: rgba(255, 179, 71, 0.3);
-      }
-
-      .marker.active {
-        border-color: var(--amber-hi);
-        background: var(--amber-hi);
-        box-shadow: 0 0 14px rgba(255, 179, 71, 0.78);
-      }
-
-      .analyzer {
-        display: grid;
-        grid-template-columns: repeat(28, minmax(0, 1fr));
-        min-width: 0;
-        max-width: 100%;
-        gap: 3px;
-        height: 76px;
-      }
-
-      .an-col {
-        display: grid;
-        grid-template-rows: repeat(8, minmax(0, 1fr));
-        gap: 2px;
-      }
-
-      .an-cell {
-        border-radius: 1px;
-        background: rgba(110, 60, 8, 0.45);
-      }
-
-      .an-cell.lit {
-        background: var(--amber);
-        box-shadow:
-          inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
-          inset 0 -0.5px 0 rgba(0, 0, 0, 0.3),
-          0 0 6px rgba(255, 179, 71, 0.62);
-      }
-
-      .led {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-        background: #31160f;
-        box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.88);
-      }
-
-      .led.on {
-        background: var(--red);
-        box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.3), 0 0 10px rgba(197, 72, 30, 0.86);
-      }
-
-      .button {
-        border: 1px solid rgba(27, 21, 12, 0.62);
-        border-radius: 6px;
-        background: #c2ab78;
-        color: rgba(18, 18, 18, 0.82);
-        box-shadow: 0 2px 0 rgba(58, 40, 19, 0.48);
-        transition: transform 90ms ease, background 120ms ease, box-shadow 90ms ease;
-      }
-
-      .button:hover,
-      .button.active {
-        color: #101313;
-        background: #d2b775;
-      }
-
-      .button:focus-visible {
-        outline: 2px solid rgba(27, 21, 12, 0.74);
-        outline-offset: 2px;
-      }
-
-      .button:active {
-        transform: translateY(2px);
-        box-shadow: 0 0 0 rgba(58, 40, 19, 0);
-      }
-
-      .play {
-        border: 1px solid rgba(52, 19, 10, 0.72);
-        border-radius: 6px;
-        background: var(--rust);
-        color: #fff4d8;
-        box-shadow: 0 4px 0 #6d2717, 0 10px 20px rgba(31, 19, 12, 0.22);
-        transition: transform 90ms ease, background 120ms ease, box-shadow 90ms ease;
-      }
-
-      .play:active,
-      .play.active {
-        transform: translateY(3px);
-        box-shadow: 0 1px 0 #6d2717;
-      }
-
-      .play:focus-visible {
-        outline: 2px solid #f2ddb0;
-        outline-offset: 3px;
-      }
-
-      .input {
-        border: 1px solid rgba(31, 22, 13, 0.42);
-        border-radius: 6px;
-        background: rgba(255, 249, 229, 0.64);
-        color: #121212;
-        outline: none;
-      }
-
-      .mode.active {
-        background: var(--ink);
-        color: var(--paper);
-        box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.62);
-      }
-
-      .control-column {
-        display: grid;
-        gap: 3px;
-        align-content: start;
-      }
-
-      .fader-panel {
-        min-height: 320px;
-        position: relative;
-        overflow: hidden;
-        background: linear-gradient(180deg, var(--paper) 0%, #e0cf9f 100%);
-        color: var(--ink);
-      }
-
-      .fader-panel::before {
-        content: "";
-        position: absolute;
-        inset: 0 auto 0 0;
-        width: 12px;
-        background: #1a140a;
-        box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.16);
-      }
-
-      .fader-top {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        grid-template-columns: 1fr auto;
         gap: 12px;
-        padding-left: 14px;
-      }
-
-      .fader-brand {
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-      }
-
-      .fader-leds {
-        display: inline-flex;
         align-items: center;
-        gap: 8px;
       }
 
-      .fader-leds span {
-        width: 6px;
-        height: 6px;
-        border-radius: 999px;
-        background: #2a1808;
-      }
-
-      .fader-leds span:last-child {
-        background: var(--amber);
-        box-shadow: 0 0 8px rgba(255, 179, 71, 0.64);
-      }
-
-      .fader-body {
-        position: relative;
-        z-index: 1;
-        display: grid;
-        grid-template-columns: 52px minmax(76px, 1fr) 48px;
-        align-items: center;
-        min-height: 230px;
-        padding: 12px 4px 6px 14px;
-      }
-
-      .fader-scale {
-        align-self: stretch;
-        display: grid;
-        grid-template-rows: repeat(7, 1fr);
-        align-items: center;
-        justify-items: end;
-        color: rgba(58, 44, 20, 0.62);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-        font-size: 0.55rem;
-      }
-
-      .fader-assembly {
-        position: relative;
-        height: 220px;
-        min-width: 82px;
-        justify-self: center;
-      }
-
-      .fader-slot {
-        position: absolute;
-        top: 16px;
-        bottom: 16px;
-        left: 50%;
-        width: 5px;
-        border-radius: 999px;
-        transform: translateX(-50%);
-        background: #1a140a;
-        box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.16);
-      }
-
-      .fader-fill {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 72%;
-        border-radius: inherit;
-        background: var(--rust);
-      }
-
-      .fader-ticks {
-        position: absolute;
-        top: 18px;
-        bottom: 18px;
-        left: calc(50% + 14px);
-        width: 28px;
-        background: repeating-linear-gradient(
-          to bottom,
-          transparent 0,
-          transparent 15px,
-          rgba(60, 40, 15, 0.42) 15px,
-          rgba(60, 40, 15, 0.42) 16px,
-          transparent 16px,
-          transparent 24px
-        );
-      }
-
-      .volume-fader {
-        position: absolute;
-        inset: 0;
-        margin: 0;
-        background: transparent;
-        cursor: pointer;
-        touch-action: none;
-      }
-
-      .volume-fader:focus-visible {
-        outline: 2px solid rgba(25, 29, 27, 0.78);
-        outline-offset: 5px;
-      }
-
-      .fader-handle {
-        position: absolute;
-        left: 50%;
-        bottom: calc(72% - 12px);
-        width: 36px;
-        height: 24px;
-        transform: translateX(-50%);
-        border: 1px solid rgba(0, 0, 0, 0.82);
-        border-radius: 4px;
-        background: #3a2a1a;
-        box-shadow:
-          0 6px 0 #1a140a,
-          0 10px 14px rgba(0, 0, 0, 0.28),
-          inset 0 1px 0 rgba(255, 255, 255, 0.12);
-        pointer-events: none;
-      }
-
-      .fader-readout {
-        display: grid;
-        justify-items: center;
-        gap: 2px;
+      .settings-volume strong {
         color: var(--ink);
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-      }
-
-      .fader-readout span:first-child {
-        font-size: 1.65rem;
-        font-weight: 700;
-        line-height: 1;
-      }
-
-      .fader-readout span:last-child {
-        font-size: 0.58rem;
-        font-weight: 700;
-        letter-spacing: 0.16em;
-      }
-
-      .fader-foot {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        align-items: end;
-        justify-content: space-between;
-        gap: 12px;
-        padding: 0 4px 0 14px;
-      }
-
-      .fader-title {
-        display: grid;
-        gap: 1px;
-        font-family: "IBM Plex Mono", ui-monospace, monospace;
-      }
-
-      .fader-title strong {
-        font-size: 0.86rem;
-      }
-
-      .fader-title span {
-        color: rgba(58, 44, 20, 0.58);
-        font-size: 0.54rem;
-        letter-spacing: 0.08em;
-      }
-
-      .service-panel {
-        border-top-left-radius: 0;
-        border-top-right-radius: 0;
-      }
-
-      @media (max-width: 860px) {
-        .screen {
-          min-height: 250px;
-        }
-
-        .screen-layout {
-          gap: 0.65rem;
-        }
-
-        .visual-focus {
-          grid-template-rows: minmax(46px, 1fr) auto;
-        }
-
-        .screen-stat {
-          padding: 0.34rem 0.42rem;
-        }
-
-        .freq {
-          font-size: 3.6rem;
-        }
-
-        .dial-wrap {
-          --dial-size: 132px;
-        }
-
-        .dial {
-          inset: 16px;
-        }
-      }
-
-      @media (max-width: 540px) {
-        .console {
-          width: calc(100vw - 24px);
-          max-width: calc(100vw - 24px);
-        }
-
-        .screen {
-          min-height: 214px;
-          padding: 0.75rem !important;
-        }
-
-        .freq {
-          font-size: 2.85rem;
-        }
-
-        .analyzer {
-          grid-template-columns: repeat(20, minmax(0, 1fr));
-          height: 50px;
-          gap: 2px;
-        }
-
-        .tuner {
-          height: 36px;
-        }
-
-        .needle {
-          top: 7px;
-          bottom: 7px;
-        }
-
-        .screen-stats {
-          grid-template-columns: minmax(0, 1fr) auto;
-        }
-
-        .screen-stat.volume-stat {
-          display: none;
-        }
-
-        .screen-frequency {
-          min-width: 78px;
-          font-size: 0.98rem;
-        }
-
-        .screen-bottom {
-          grid-template-columns: 1fr auto !important;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .program-copy {
-          display: none;
-        }
-
-        .frequency-panel {
-          padding: 0.75rem !important;
-        }
-
-        .analog-copy {
-          display: none;
-        }
-
-        .frequency-panel .panel-head,
-        .duration-panel .panel-head {
-          margin-bottom: 0.5rem !important;
-        }
-
-        .dial-wrap {
-          --dial-size: 120px;
-        }
-
-        .dial {
-          inset: 14px;
-        }
-
-        .control-stack {
-          margin-top: 0.55rem !important;
-          gap: 0.5rem !important;
-        }
-
-        .fader-panel {
-          min-height: 288px;
-        }
-
-        .fader-body {
-          min-height: 196px;
-        }
-
-        .fader-assembly {
-          height: 190px;
-        }
+        font-family: var(--font-mono);
+        font-size: 24px;
+        letter-spacing: 0.04em;
       }
     </style>
   </head>
   <body>
-    <main class="min-h-screen px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-10">
-      <section class="mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1180px] items-center justify-center">
-        <div class="console p-3 sm:p-4 lg:p-5">
-          <div class="top-rail mb-3 flex items-center justify-between gap-3 rounded-[6px] px-3 py-2 sm:px-4">
-            <div class="flex min-w-0 items-center gap-3">
-              <span id="powerLed" class="led"></span>
-              <div class="min-w-0">
-                <p class="m-0 font-mono text-xs font-semibold text-[#f7edcf]">VibeFM</p>
-                <p id="topStatus" class="m-0 truncate font-mono text-[0.68rem] text-[#ffc15d]">STANDBY</p>
+    <div class="viewport">
+      <div id="device" class="device">
+        <div class="mount" aria-hidden="true"></div>
+        <div class="antenna" aria-hidden="true"></div>
+
+        <button id="settingsButton" class="settings-btn" type="button" aria-controls="settingsDrawer" aria-expanded="false">
+          SETTINGS
+        </button>
+
+        <div class="body">
+          <div class="top-bar">
+            <div class="knob-cell">
+              <div
+                id="durationDial"
+                class="knob"
+                role="slider"
+                tabindex="0"
+                aria-label="Episode length"
+                aria-valuemin="1"
+                aria-valuemax="30"
+                aria-valuenow="2"
+                aria-valuetext="2 minutes"
+              ></div>
+              <span class="knob-label">Length</span>
+              <span id="durationValue" class="knob-value">02:00</span>
+            </div>
+
+            <div id="mainDisplay" class="display">
+              <div id="analyzer" class="display-analyzer" aria-hidden="true"></div>
+              <div class="disp-row">
+                <span id="screenStatus" class="disp-eyebrow">STANDBY</span>
+                <span id="powerLed" class="power-dot" aria-hidden="true"></span>
+              </div>
+              <div class="disp-row">
+                <span id="stationName" class="disp-station">DEEP FOCUS</span>
+                <span id="timerReadout" class="disp-time">02:00</span>
+              </div>
+              <div id="tunerStrip" class="tuner-strip" aria-label="Tuner">
+                <div id="tunerNumbers" class="tuner-numbers" aria-hidden="true"></div>
+                <div id="tunerRule" class="tuner-rule">
+                  <div id="tunerPointer" class="tpointer" aria-hidden="true">
+                    <span class="tpoint-tip"></span>
+                    <span class="tpoint-rod"></span>
+                  </div>
+                </div>
+                <div id="tunerStations" class="tuner-stations"></div>
+                <div class="tuner-foot">
+                  <span>87.5 - 108 MHz</span>
+                  <span>FM</span>
+                </div>
               </div>
             </div>
-            <div class="hidden items-center gap-2 sm:flex">
-              <span class="h-2 w-2 rounded-full bg-[#ffb347] shadow-[0_0_10px_rgba(255,179,71,.8)]"></span>
-              <span id="apiStatus" class="font-mono text-[0.68rem] text-[#d7c49b]">CHECKING API</span>
+
+            <div class="knob-cell">
+              <div
+                id="frequencyDial"
+                class="knob"
+                role="slider"
+                tabindex="0"
+                aria-label="Tuning frequency"
+                aria-valuemin="87.5"
+                aria-valuemax="108"
+                aria-valuenow="88.3"
+                aria-valuetext="88.3 MHz"
+              ></div>
+              <span class="knob-label">Tune - MHz</span>
+              <span id="freqValue" class="knob-value">88.3</span>
             </div>
-            <div class="font-mono text-[0.68rem] text-[#d7c49b]">SN-7042</div>
           </div>
 
-          <div class="grid gap-3 lg:grid-cols-[238px_minmax(0,1fr)_238px] lg:gap-4">
-            <section id="frequencyPanel" class="panel frequency-panel order-2 p-4 sm:p-5 lg:order-1" aria-labelledby="frequencyLabel">
-              <div class="panel-head mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <p id="frequencyLabel" class="label">Frequency</p>
-                  <p class="analog-copy m-0 mt-1 text-sm text-[#3a2a18]">Analog tune</p>
+          <div id="grilleArea" class="grille-area">
+            <div class="cabinet" aria-hidden="true">
+              <span class="glow" style="left: 14%; top: 45%"></span>
+              <span class="glow" style="left: 32%; top: 45%; animation-delay: .32s"></span>
+              <span class="glow" style="left: 50%; top: 55%; animation-delay: .64s"></span>
+              <span class="glow" style="left: 68%; top: 45%; animation-delay: .96s"></span>
+              <span class="glow" style="left: 86%; top: 45%; animation-delay: 1.28s"></span>
+            </div>
+
+            <section id="settingsDrawer" class="settings" aria-label="Settings panel">
+              <div class="settings-head">
+                <div class="settings-title">VibeFM - Settings</div>
+                <div class="tabs" role="tablist" aria-label="Settings tabs">
+                  <button class="tab active" type="button" role="tab" aria-selected="true" data-tab="vibes">Vibes</button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-tab="api">API</button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-tab="voices">Voices</button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-tab="audio">Audio</button>
+                  <button class="tab" type="button" role="tab" aria-selected="false" data-tab="about">About</button>
                 </div>
-                <span class="rounded-[4px] border border-[#43311d]/40 bg-[#f5e7c5]/50 px-2 py-1 font-mono text-[0.68rem] text-[#2a2116]">FM</span>
               </div>
-              <div id="frequencyDialWrap" class="dial-wrap">
-                <div
-                  id="frequencyDial"
-                  class="dial"
-                  role="slider"
-                  tabindex="0"
-                  aria-labelledby="frequencyLabel"
-                  aria-valuemin="87.5"
-                  aria-valuemax="108"
-                  aria-valuenow="88.3"
-                  aria-valuetext="88.3 MHz"
-                ></div>
-              </div>
-              <div class="control-stack mt-4 grid justify-items-center gap-3">
-                <div class="dial-value px-3 py-2 text-center text-2xl font-semibold">
-                  <span id="dialFreqReadout">88.3</span>
+
+              <div class="settings-body">
+                <div id="tab-vibes" class="tab-panel stations-tab" data-panel="vibes">
+                  <div class="vibe-picker">
+                    <label class="vp-label" for="vibeSelect">Vibe</label>
+                    <div class="vp-select-wrap">
+                      <select id="vibeSelect" class="vp-select"></select>
+                      <span class="vp-caret" aria-hidden="true">v</span>
+                    </div>
+                    <button id="newVibeButton" class="vp-new" type="button">+ New</button>
+                  </div>
+
+                  <div id="stationEditor" class="station-edit">
+                    <div class="edit-grid">
+                      <div class="row">
+                        <div class="field grow">
+                          <label for="vibeNameInput">Name</label>
+                          <input id="vibeNameInput" type="text" value="" autocomplete="off" />
+                        </div>
+                        <div class="field grow-2">
+                          <label for="rssDraftInput">Custom RSS</label>
+                          <div class="rss-chips">
+                            <div class="rss-input">
+                              <input id="rssDraftInput" type="url" placeholder="paste a feed URL" />
+                              <button id="rssAddButton" class="rss-add" type="button">+</button>
+                            </div>
+                            <div id="rssList" class="rss-list"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="field">
+                        <label>Sources</label>
+                        <div id="sourcePresets" class="source-presets"></div>
+                      </div>
+
+                      <div class="row">
+                        <div class="field">
+                          <label>Hosts</label>
+                          <div class="seg" data-control="hosts">
+                            <button class="seg-btn active" type="button" data-hosts="1">Solo</button>
+                            <button class="seg-btn" type="button" data-hosts="2">Duo</button>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label>Tone</label>
+                          <div class="seg" data-control="tone">
+                            <button class="seg-btn active" type="button" data-tone="25">Casual</button>
+                            <button class="seg-btn" type="button" data-tone="75">Pro</button>
+                          </div>
+                        </div>
+                        <div class="field">
+                          <label>Voices</label>
+                          <div class="voices-row compact">
+                            <div class="voice-cell">
+                              <span class="vc-tag">A</span>
+                              <div class="seg" data-control="voiceA">
+                                <button class="seg-btn" type="button" data-voice-a="M">M</button>
+                                <button class="seg-btn active" type="button" data-voice-a="F">F</button>
+                              </div>
+                            </div>
+                            <div class="voice-cell" id="voiceBCell">
+                              <span class="vc-tag">B</span>
+                              <div class="seg" data-control="voiceB">
+                                <button class="seg-btn active" type="button" data-voice-b="M">M</button>
+                                <button class="seg-btn" type="button" data-voice-b="F">F</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="field actions">
+                        <button id="deleteVibeButton" class="delete-btn" type="button">Delete vibe</button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div class="grid w-full grid-cols-2 gap-2">
-                  <button id="freqDown" class="button px-3 py-2 font-mono text-sm font-semibold" type="button">-0.1</button>
-                  <button id="freqUp" class="button px-3 py-2 font-mono text-sm font-semibold" type="button">+0.1</button>
+
+                <div id="tab-api" class="tab-panel simple-tab" data-panel="api" hidden>
+                  <div class="api-grid">
+                    <div class="field grow-2">
+                      <label for="apiBaseInput">Backend</label>
+                      <input id="apiBaseInput" type="url" value="" />
+                    </div>
+                    <div class="field">
+                      <label>Mode</label>
+                      <div class="seg">
+                        <button id="modeMock" class="seg-btn active" type="button">Demo</button>
+                        <button id="modeReal" class="seg-btn" type="button">Real</button>
+                      </div>
+                    </div>
+                    <div id="apiStatus" class="api-status checking">
+                      <span class="api-dot" aria-hidden="true"></span>
+                      <span>Checking</span>
+                    </div>
+                  </div>
+                  <p class="tab-lead">The local backend powers saved vibes and generated episodes.</p>
+
+                  <div class="api-grid">
+                    <div class="field grow-2">
+                      <label for="keyOpenRouter">OpenRouter key</label>
+                      <input id="keyOpenRouter" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-..." />
+                    </div>
+                    <div class="field grow-2">
+                      <label for="keyElevenLabs">ElevenLabs key</label>
+                      <input id="keyElevenLabs" type="password" autocomplete="off" spellcheck="false" placeholder="sk_..." />
+                    </div>
+                    <div id="keysStatus" class="api-status">
+                      <span class="api-dot" aria-hidden="true"></span>
+                      <span>0 of 2 keys</span>
+                    </div>
+                  </div>
+                  <p class="tab-lead">Keys stay in your browser and travel with each episode request. Required for Real mode.</p>
+                </div>
+
+                <div id="tab-voices" class="tab-panel simple-tab" data-panel="voices" hidden>
+                  <p class="tab-lead">Voice assignment is saved per vibe and sent with new episodes.</p>
+                  <div class="voice-grid">
+                    <button class="voice-card" type="button"><span class="voice-name">Mira</span><span class="voice-gender">F</span><span class="voice-desc">warm host</span><span class="voice-play">></span></button>
+                    <button class="voice-card" type="button"><span class="voice-name">Noor</span><span class="voice-gender">F</span><span class="voice-desc">calm newsreader</span><span class="voice-play">></span></button>
+                    <button class="voice-card" type="button"><span class="voice-name">Sol</span><span class="voice-gender">M</span><span class="voice-desc">low midnight tone</span><span class="voice-play">></span></button>
+                    <button class="voice-card" type="button"><span class="voice-name">Jules</span><span class="voice-gender">M</span><span class="voice-desc">bright cohost</span><span class="voice-play">></span></button>
+                    <button class="voice-card" type="button"><span class="voice-name">Iris</span><span class="voice-gender">F</span><span class="voice-desc">soft focus</span><span class="voice-play">></span></button>
+                    <button class="voice-card" type="button"><span class="voice-name">Vale</span><span class="voice-gender">M</span><span class="voice-desc">measured analyst</span><span class="voice-play">></span></button>
+                  </div>
+                </div>
+
+                <div id="tab-audio" class="tab-panel simple-tab" data-panel="audio" hidden>
+                  <div class="field">
+                    <label for="volumeRange">Volume</label>
+                    <div class="settings-volume">
+                      <input id="volumeRange" type="range" min="0" max="100" value="72" />
+                      <strong id="volumeValue">72</strong>
+                    </div>
+                  </div>
+                  <div class="eq-row" aria-hidden="true">
+                    <div class="eq-col"><input type="range" min="0" max="10" value="4" /><span class="eq-label">Low</span></div>
+                    <div class="eq-col"><input type="range" min="0" max="10" value="6" /><span class="eq-label">Mid</span></div>
+                    <div class="eq-col"><input type="range" min="0" max="10" value="7" /><span class="eq-label">Air</span></div>
+                    <div class="eq-col"><input type="range" min="0" max="10" value="5" /><span class="eq-label">Tape</span></div>
+                    <div class="eq-col"><input type="range" min="0" max="10" value="3" /><span class="eq-label">Room</span></div>
+                  </div>
+                </div>
+
+                <div id="tab-about" class="tab-panel simple-tab about-tab" data-panel="about" hidden>
+                  <div class="about-row"><span>Model</span><span>VibeFM / MK II</span></div>
+                  <div class="about-row"><span>Serial</span><span>SN-7042</span></div>
+                  <div class="about-row"><span>Frontend</span><span>Vite + Tailwind v4</span></div>
+                  <div class="about-row"><span>Mode</span><span id="aboutMode">Demo</span></div>
+                  <p class="about-foot">Personal AI radio, rebuilt into the current app shell.</p>
                 </div>
               </div>
             </section>
 
-            <section id="mainScreen" class="screen order-1 p-4 sm:p-5 lg:order-2" aria-label="VibeFM broadcast display">
-              <div class="screen-layout">
-                <div class="screen-header flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="amber m-0 text-xs font-semibold">VibeFM</p>
-                    <p id="screenStatus" class="lcd m-0 mt-1 truncate text-sm">STANDBY</p>
-                  </div>
-                  <div class="flex shrink-0 items-start gap-3">
-                    <div class="screen-frequency" aria-label="Current frequency">
-                      <span id="freqReadout">88.3</span>
-                      <span>MHz</span>
-                    </div>
-                    <div class="flex items-center gap-2 rounded-[4px] border border-[#ffb347]/25 px-2 py-1">
-                      <span id="lockLed" class="led on"></span>
-                      <span id="signalText" class="lcd text-xs">LOCK</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="screen-stage">
-                  <div class="tuning-focus">
-                    <div class="flex items-end gap-3">
-                      <span id="focusFreqReadout" class="freq">88.3</span>
-                      <span class="amber pb-1 text-xl font-semibold">MHz</span>
-                    </div>
-                    <p id="stationName" class="amber m-0 mt-2 truncate text-2xl font-semibold">DEEP FOCUS</p>
-                    <p id="stationTag" class="lcd m-0 mt-1 truncate text-sm">ambient lab loops</p>
-                  </div>
-
-                  <div class="visual-focus">
-                    <div id="analyzer" class="analyzer" aria-hidden="true"></div>
-                    <div class="screen-stats">
-                      <div id="tunerTrack" class="tuner">
-                        <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 12.2%">90</span>
-                        <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 36.6%">95</span>
-                        <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 61%">100</span>
-                        <span class="lcd absolute top-2 translate-x-[-50%] text-xs" style="left: 85.4%">105</span>
-                        <span id="tunerNeedle" class="needle" style="left: 3.9%"></span>
-                      </div>
-                      <div class="screen-stat volume-stat">
-                        <p class="lcd m-0 text-[0.68rem]">VOL</p>
-                        <p id="screenVolume" class="amber m-0 text-xl font-semibold">72</p>
-                      </div>
-                      <div class="screen-stat">
-                        <p class="lcd m-0 text-[0.68rem]">TIME</p>
-                        <p id="timerReadout" class="amber m-0 text-xl font-semibold">02:00</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="screen-bottom grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <div class="min-w-0">
-                    <p class="program-copy lcd m-0 text-[0.68rem]">PROGRAM</p>
-                    <p id="programText" class="amber m-0 truncate text-sm">Ready for a generated test signal.</p>
-                  </div>
-                  <button id="playButton" type="button" class="play min-h-12 px-8 py-3 font-mono text-base font-semibold">PLAY</button>
-                </div>
-              </div>
-            </section>
-
-            <section id="durationPanel" class="panel duration-panel order-3 p-4 sm:p-5" aria-labelledby="durationLabel">
-              <div class="panel-head mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <p id="durationLabel" class="label">Duration</p>
-                  <p class="analog-copy m-0 mt-1 text-sm text-[#3a2a18]">Episode length</p>
-                </div>
-                <span class="rounded-[4px] border border-[#43311d]/40 bg-[#f5e7c5]/50 px-2 py-1 font-mono text-[0.68rem] text-[#2a2116]">MIN</span>
-              </div>
-              <div id="durationDialWrap" class="dial-wrap">
-                <div
-                  id="durationDial"
-                  class="dial"
-                  role="slider"
-                  tabindex="0"
-                  aria-labelledby="durationLabel"
-                  aria-valuemin="1"
-                  aria-valuemax="30"
-                  aria-valuenow="2"
-                  aria-valuetext="2 minutes"
-                ></div>
-              </div>
-              <div class="control-stack mt-4 grid justify-items-center gap-3">
-                <div class="dial-value px-3 py-2 text-center text-2xl font-semibold">
-                  <span id="dialDurationReadout">2</span>
-                </div>
-                <div class="grid w-full grid-cols-3 gap-2 font-mono text-[0.68rem] font-semibold text-[#342817]/70">
-                  <span>1</span>
-                  <span class="text-center">15</span>
-                  <span class="text-right">30</span>
-                </div>
-              </div>
-            </section>
+            <div id="grillePanel" class="grille-panel" aria-hidden="true"></div>
           </div>
 
-          <section class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_310px]">
-            <div class="panel p-3">
-              <div class="mb-2 flex items-center justify-between gap-3">
-                <p class="label">Presets</p>
-                <p class="m-0 hidden truncate text-right font-mono text-[0.68rem] text-[#342817]/70 sm:block">Tap a station or turn the dial</p>
+          <div class="foot">
+            <span class="brand">VibeFM</span>
+            <div class="transport">
+              <button id="playButton" class="play-btn" type="button">PLAY</button>
+              <div class="led">
+                <span id="statusLamp" class="lamp" aria-hidden="true"></span>
+                <span id="topStatus">STANDBY</span>
               </div>
-              <div id="presetRail" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"></div>
             </div>
+            <span>SN-7042</span>
+          </div>
 
-            <div class="control-column">
-              <section class="panel fader-panel p-3" aria-labelledby="volumeFaderLabel">
-                <div class="fader-top">
-                  <span class="fader-brand">VibeFM</span>
-                  <span class="fader-leds" aria-hidden="true"><span></span><span></span></span>
-                </div>
-                <div class="fader-body">
-                  <div class="fader-scale" aria-hidden="true">
-                    <span>100</span><span>85</span><span>70</span><span>55</span><span>40</span><span>25</span><span>0</span>
-                  </div>
-                  <div class="fader-assembly">
-                    <div class="fader-slot" aria-hidden="true"><span id="volumeFaderFill" class="fader-fill"></span></div>
-                    <div class="fader-ticks" aria-hidden="true"></div>
-                    <div
-                      id="volumeFader"
-                      class="volume-fader"
-                      role="slider"
-                      tabindex="0"
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-valuenow="72"
-                      aria-labelledby="volumeFaderLabel"
-                      aria-valuetext="72 percent"
-                    >
-                      <span id="volumeFaderHandle" class="fader-handle"></span>
-                    </div>
-                  </div>
-                  <div class="fader-readout">
-                    <span id="faderVolumeReadout">72</span>
-                    <span>LEVEL</span>
-                  </div>
-                </div>
-                <div class="fader-foot">
-                  <span class="fader-title">
-                    <strong id="volumeFaderLabel">Volume</strong>
-                    <span>Analog slide fader</span>
-                  </span>
-                  <span class="label">Audio</span>
-                </div>
-              </section>
-
-              <details class="panel service-panel p-3">
-                <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
-                  <span class="label">Service</span>
-                  <span id="serviceSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70">mock / 2 min</span>
-                </summary>
-                <div class="mt-3 grid gap-3">
-                  <label class="grid gap-1">
-                    <span class="label">Backend</span>
-                    <input id="apiBaseInput" class="input min-h-10 px-3 py-2 text-sm" type="url" value="" />
-                  </label>
-                  <div class="grid grid-cols-2 gap-2">
-                    <button id="modeMock" class="button mode min-h-10 px-3 py-2 font-mono text-xs font-semibold" type="button">DEMO</button>
-                    <button id="modeReal" class="button mode min-h-10 px-3 py-2 font-mono text-xs font-semibold" type="button">REAL</button>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </section>
-
-          <section class="mt-3 grid gap-3 lg:grid-cols-2">
-            <details class="panel p-3">
-              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
-                <span class="label">API Keys</span>
-                <span id="keysSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70">none saved</span>
-              </summary>
-              <div class="mt-3 grid gap-3">
-                <p class="m-0 text-[0.68rem] text-[#342817]/70">Keys stay in your browser. Sent per-request, never stored on the server.</p>
-                <label class="grid gap-1">
-                  <span class="label">OpenRouter</span>
-                  <input id="keyOpenRouter" class="input min-h-10 px-3 py-2 font-mono text-sm" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-..." />
-                </label>
-                <label class="grid gap-1">
-                  <span class="label">ElevenLabs</span>
-                  <input id="keyElevenLabs" class="input min-h-10 px-3 py-2 font-mono text-sm" type="password" autocomplete="off" spellcheck="false" placeholder="sk_..." />
-                </label>
-              </div>
-            </details>
-
-            <details class="panel p-3">
-              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
-                <span class="label">Stations</span>
-                <span id="stationsSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70"></span>
-              </summary>
-              <div id="stationsEditor" class="mt-3 grid gap-2"></div>
-              <div class="mt-2 grid grid-cols-2 gap-2">
-                <button id="addStation" type="button" class="button min-h-10 px-3 py-2 font-mono text-xs font-semibold">+ ADD</button>
-                <button id="resetStations" type="button" class="button min-h-10 px-3 py-2 font-mono text-xs font-semibold">RESET</button>
-              </div>
-            </details>
-          </section>
+          <div class="feet" aria-hidden="true"><span></span><span></span></div>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
 
-    <script>
-      const FREQ_MIN = 87.5;
-      const FREQ_MAX = 108.0;
-      const DURATION_MIN = 1;
-      const DURATION_MAX = 30;
-      const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8765";
-      const ACTIVE_STATES = new Set(["starting", "generating", "playing"]);
-      const TUNING_FOCUS_MS = 2800;
-      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-      const pad = (n) => String(Math.floor(n)).padStart(2, "0");
-      const pad2 = (n) => String(n).padStart(2, "0");
-
-      const KEY_ENV_NAMES = {
-        openrouter: "OPENROUTER_API_KEY",
-        elevenlabs: "ELEVENLABS_API_KEY",
-      };
-
-      const fallbackStations = [
-        ["DEEP FOCUS", "ambient lab loops", 88.3, "Pavilion 04 - Lake Theta"],
-        ["LOFI MEMORY", "nostalgic recompositions", 91.4, "Camcorder Sun"],
-        ["SOLAR DRIFT", "sun-warmed synthwave", 94.7, "Topanga FM"],
-        ["NIGHTCREW", "midnight conversations", 98.1, "Late-shift roundtable"],
-        ["ARCHIVE BLOOM", "found sound, restored", 101.9, "Lecture 7 recombined"],
-        ["SIGNAL / NOISE", "experimental cuts", 104.6, "Generator Alpha"],
-        ["LONG WAVE", "drone meditation", 107.2, "Thalassa"],
-      ].map(([name, tag, mhz, track], index) => ({
-        id: index + 1,
-        backendId: null,
-        name,
-        tag,
-        mhz,
-        hosts: 1,
-        voiceA: "F",
-        voiceB: "M",
-        tone: 25,
-        urls: [],
-        sourcePresetIds: [],
-        tracks: [track],
-      }));
-
-      function loadStoredKeys() {
-        const out = { openrouter: "", elevenlabs: "" };
-        try {
-          out.openrouter = localStorage.getItem("vibefm.keys.openrouter") || "";
-          out.elevenlabs = localStorage.getItem("vibefm.keys.elevenlabs") || "";
-        } catch {}
-        return out;
-      }
-
-      function persistKey(name, value) {
-        try {
-          if (value) localStorage.setItem(`vibefm.keys.${name}`, value);
-          else localStorage.removeItem(`vibefm.keys.${name}`);
-        } catch {}
-      }
-
-      function buildApiKeys() {
-        const out = {};
-        for (const [name, env] of Object.entries(KEY_ENV_NAMES)) {
-          const value = (state.keys[name] || "").trim();
-          if (value) out[env] = value;
-        }
-        return out;
-      }
-
-      function loadStoredStations() {
-        try {
-          const raw = localStorage.getItem("vibefm.stations");
-          if (!raw) return null;
-          const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed) || parsed.length === 0) return null;
-          return parsed.map((s, i) => ({
-            id: s.id || i + 1,
-            backendId: null,
-            name: String(s.name || "STATION").toUpperCase(),
-            tag: s.tag || "custom",
-            mhz: clamp(Number(s.mhz) || 99.0, FREQ_MIN, FREQ_MAX),
-            hosts: s.hosts === 2 ? 2 : 1,
-            voiceA: s.voiceA === "M" ? "M" : "F",
-            voiceB: s.voiceB === "M" ? "M" : "F",
-            tone: Number(s.tone) >= 50 ? 75 : 25,
-            urls: Array.isArray(s.urls) ? s.urls : [],
-            sourcePresetIds: Array.isArray(s.sourcePresetIds) ? s.sourcePresetIds : [],
-            tracks: ["custom"],
-          }));
-        } catch {
-          return null;
-        }
-      }
-
-      function persistStations() {
-        try {
-          const slim = state.stations.map((s) => ({
-            id: s.id,
-            name: s.name,
-            tag: s.tag,
-            mhz: s.mhz,
-            hosts: s.hosts,
-            voiceA: s.voiceA,
-            voiceB: s.voiceB,
-            tone: s.tone,
-            urls: s.urls || [],
-            sourcePresetIds: s.sourcePresetIds || [],
-          }));
-          localStorage.setItem("vibefm.stations", JSON.stringify(slim));
-        } catch {}
-      }
-
-      function nextFreeFrequency() {
-        const used = new Set(state.stations.map((s) => Math.round(s.mhz * 10)));
-        for (let f = FREQ_MIN; f <= FREQ_MAX; f += 0.1) {
-          const key = Math.round(f * 10);
-          if (!used.has(key)) return Math.round(f * 10) / 10;
-        }
-        return 99.0;
-      }
-
-      const state = {
-        freqMHz: fallbackStations[0].mhz,
-        volume: 72,
-        durationSec: 120,
-        remainingSec: 0,
-        mode: "mock",
-        apiBase: defaultApiBase(),
-        apiStatus: "checking",
-        playerState: "idle",
-        playerText: "STANDBY",
-        tuningFocusUntil: 0,
-        segmentProgress: { queued: 0, played: 0, total: 0 },
-        generationComplete: false,
-        stations: fallbackStations,
-        keys: { openrouter: "", elevenlabs: "" },
-        sourcePresets: [
-          { id: "google_news", label: "Google News" },
-          { id: "hacker_news", label: "Hacker News" },
-          { id: "techcrunch", label: "TechCrunch" },
-          { id: "product_hunt", label: "Product Hunt" },
-        ],
-      };
-
-      const playback = {
-        audioContext: null,
-        gainNode: null,
-        eventSource: null,
-        sourceRefs: [],
-        activeApiBase: "",
-        nextStartTime: 0,
-        runId: 0,
-      };
-
-      const els = {};
-      let frequencyDial;
-      let durationDial;
-      let analyzerColumns = [];
-      let apiCheckTimer = null;
-      let tuningFocusTimer = null;
-
-      function defaultApiBase() {
-        if (window.location.protocol === "http:" || window.location.protocol === "https:") return window.location.origin;
-        return DEFAULT_BACKEND_BASE;
-      }
-
-      function cleanApiBase(value) {
-        return String(value || "").trim().replace(/\/+$/, "");
-      }
-
-      async function requestJson(apiBase, path, options = {}) {
-        const response = await fetch(`${cleanApiBase(apiBase)}${path}`, options);
-        const text = await response.text();
-        let body = {};
-        if (text) {
-          try {
-            body = JSON.parse(text);
-          } catch {
-            body = { error: text };
-          }
-        }
-        if (!response.ok) {
-          const error = new Error(body.error || `Request failed: ${response.status}`);
-          error.status = response.status;
-          throw error;
-        }
-        return body;
-      }
-
-      async function requestJsonFromAnyApi(primaryApiBase, path, options = {}) {
-        let lastError = null;
-        for (const base of [cleanApiBase(primaryApiBase), DEFAULT_BACKEND_BASE].filter(Boolean)) {
-          try {
-            return { data: await requestJson(base, path, options), apiBase: base };
-          } catch (error) {
-            lastError = error;
-            if (error?.status && ![404, 405, 501].includes(error.status)) break;
-          }
-        }
-        throw lastError || new Error("API request failed");
-      }
-
-      function stationFromVibe(vibe, index) {
-        const hostFormat = vibe.host_format || vibe.host?.format || "solo";
-        const voiceGender = vibe.voice_gender || vibe.host?.voice_gender || "female";
-        const mhz = [88.3, 91.4, 94.7, 98.1, 101.2, 104.6, 106.8, 107.6][index] || 99.5;
-        return {
-          id: vibe.id,
-          backendId: vibe.id,
-          name: String(vibe.name || "VIBE").toUpperCase(),
-          tag: (vibe.rss_feeds || []).length ? `${vibe.rss_feeds.length} sources` : "default sources",
-          mhz,
-          hosts: hostFormat === "duo" ? 2 : 1,
-          voiceA: voiceGender === "male" ? "M" : "F",
-          voiceB: voiceGender === "male" ? "F" : "M",
-          tone: vibe.tone === "professional" ? 75 : 25,
-          urls: vibe.custom_rss_feeds || [],
-          sourcePresetIds: vibe.source_preset_ids || [],
-          tracks: ["Saved personal vibe"],
-        };
-      }
-
-      function styleFromStation(station) {
-        const tone = station.tone >= 50 ? "professional, crisp, source-aware radio" : "casual, warm, already-on-air radio";
-        const hosts = station.hosts === 2 ? "two-host handoff" : "solo host";
-        return `${tone}; ${hosts}`;
-      }
-
-      function episodePayloadFromStation(station) {
-        const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
-        if (station.backendId) {
-          return {
-            mode: state.mode,
-            vibe_id: station.backendId,
-            replace_topics: true,
-            replace_rss_feeds: true,
-            duration: `${durationMinutes} minutes`,
-            duration_minutes: durationMinutes,
-          };
-        }
-        return {
-          mode: state.mode,
-          station_name: station.name,
-          style: styleFromStation(station),
-          rss_feeds: station.urls || [],
-          replace_topics: true,
-          replace_rss_feeds: true,
-          source_preset_ids: station.sourcePresetIds || [],
-          host_tone: station.tone >= 50 ? "professional" : "casual",
-          voice_gender: station.voiceA === "M" ? "male" : "female",
-          host_format: station.hosts === 2 ? "duo" : "solo",
-          duration: `${durationMinutes} minutes`,
-          duration_minutes: durationMinutes,
-        };
-      }
-
-      function humanStatus(status) {
-        return (
-          {
-            queued: "QUEUED",
-            checking_runtime: "CHECKING",
-            fetching_sources: "SOURCES",
-            generating_script: "SCRIPTING",
-            rendering_audio: "RENDERING",
-            audio_disabled: "NO AUDIO",
-            complete: "COMPLETE",
-            failed: "FAILED",
-          }[status] || String(status || "WORKING").toUpperCase()
-        );
-      }
-
-      function formatTimer(value) {
-        const total = Math.max(0, Math.round(value || 0));
-        return `${pad(total / 60)}:${pad(total % 60)}`;
-      }
-
-      function active() {
-        return ACTIVE_STATES.has(state.playerState);
-      }
-
-      function closestStation() {
-        let station = state.stations[0];
-        let index = 0;
-        let dist = Infinity;
-        state.stations.forEach((candidate, i) => {
-          const next = Math.abs(candidate.mhz - state.freqMHz);
-          if (next < dist) {
-            station = candidate;
-            index = i;
-            dist = next;
-          }
-        });
-        return { station, index, dist, tuned: dist <= 0.4 };
-      }
-
-      function pctForFreq(freq) {
-        return ((freq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN)) * 100;
-      }
-
-      function setFrequency(value) {
-        const next = Math.round(clamp(value, FREQ_MIN, FREQ_MAX) * 10) / 10;
-        if (next !== state.freqMHz) {
-          state.tuningFocusUntil = Date.now() + TUNING_FOCUS_MS;
-          clearTimeout(tuningFocusTimer);
-          tuningFocusTimer = setTimeout(render, TUNING_FOCUS_MS + 40);
-        }
-        state.freqMHz = next;
-        frequencyDial?.setValue(state.freqMHz, false);
-        render();
-      }
-
-      function setVolume(value) {
-        state.volume = Math.round(clamp(value, 0, 100));
-        if (playback.gainNode && playback.audioContext) {
-          playback.gainNode.gain.setTargetAtTime(state.volume / 100, playback.audioContext.currentTime, 0.015);
-        }
-        try {
-          localStorage.setItem("vibefm.volume", String(state.volume));
-        } catch {}
-        render();
-      }
-
-      function setDurationMinutes(value) {
-        const minutes = Math.round(clamp(value, DURATION_MIN, DURATION_MAX));
-        state.durationSec = minutes * 60;
-        durationDial?.setValue(minutes, false);
-        try {
-          localStorage.setItem("vibefm.durationSec", String(state.durationSec));
-        } catch {}
-        render();
-      }
-
-      function setPlayer(playerState, text) {
-        state.playerState = playerState;
-        state.playerText = text || state.playerText;
-        render();
-      }
-
-      function tickMarks(container) {
-        for (let i = 0; i < 25; i += 1) {
-          const angle = -135 + (i / 24) * 270;
-          const rad = (angle * Math.PI) / 180;
-          const tick = document.createElement("span");
-          tick.className = `tick${i % 4 === 0 ? " major" : ""}`;
-          tick.style.left = `${50 + 45 * Math.sin(rad)}%`;
-          tick.style.top = `${50 - 45 * Math.cos(rad)}%`;
-          tick.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
-          container.appendChild(tick);
-        }
-      }
-
-      function bindDial(element, config) {
-        const range = config.max - config.min;
-        let value = config.value;
-        let dragging = false;
-        const normalize = (raw) => Math.round(raw / config.step) * config.step;
-        const angleFor = (next) => -135 + ((next - config.min) / range) * 270;
-
-        function setValue(nextValue, notify = true) {
-          value = clamp(normalize(nextValue), config.min, config.max);
-          element.style.setProperty("--angle", `${angleFor(value)}deg`);
-          element.setAttribute("aria-valuenow", String(Math.round(value * 10) / 10));
-          element.setAttribute("aria-valuetext", config.format(value));
-          if (notify) config.onChange(value);
-        }
-
-        function valueFromPointer(event) {
-          const rect = element.getBoundingClientRect();
-          const dx = event.clientX - (rect.left + rect.width / 2);
-          const dy = event.clientY - (rect.top + rect.height / 2);
-          if (Math.hypot(dx, dy) < rect.width * 0.08) return null;
-          const angle = clamp(Math.atan2(dx, -dy) * (180 / Math.PI), -135, 135);
-          return config.min + ((angle + 135) / 270) * range;
-        }
-
-        function applyPointer(event) {
-          const next = valueFromPointer(event);
-          if (next != null) {
-            event.preventDefault();
-            setValue(next);
-          }
-        }
-
-        element.addEventListener("pointerdown", (event) => {
-          dragging = true;
-          element.setPointerCapture?.(event.pointerId);
-          applyPointer(event);
-        });
-        element.addEventListener("pointermove", (event) => dragging && applyPointer(event));
-        element.addEventListener("pointerup", (event) => {
-          dragging = false;
-          element.releasePointerCapture?.(event.pointerId);
-        });
-        element.addEventListener("pointercancel", () => {
-          dragging = false;
-        });
-        element.addEventListener("wheel", (event) => {
-          event.preventDefault();
-          setValue(value - Math.sign(event.deltaY) * config.step);
-        });
-        element.addEventListener("keydown", (event) => {
-          const keys = {
-            ArrowUp: config.step,
-            ArrowRight: config.step,
-            ArrowDown: -config.step,
-            ArrowLeft: -config.step,
-            PageUp: config.step * 10,
-            PageDown: -config.step * 10,
-          };
-          if (event.key in keys) {
-            event.preventDefault();
-            setValue(value + keys[event.key]);
-          } else if (event.key === "Home") {
-            event.preventDefault();
-            setValue(config.min);
-          } else if (event.key === "End") {
-            event.preventDefault();
-            setValue(config.max);
-          }
-        });
-        setValue(value, false);
-        return { setValue };
-      }
-
-      function bindFader(element, onChange) {
-        let dragging = false;
-
-        const valueFromPointer = (event) => {
-          const rect = element.getBoundingClientRect();
-          const y = clamp(event.clientY - rect.top, 0, rect.height);
-          return Math.round((1 - y / rect.height) * 100);
-        };
-
-        const applyPointer = (event) => {
-          event.preventDefault();
-          onChange(valueFromPointer(event));
-        };
-
-        element.addEventListener("pointerdown", (event) => {
-          dragging = true;
-          element.setPointerCapture?.(event.pointerId);
-          applyPointer(event);
-        });
-        element.addEventListener("pointermove", (event) => {
-          if (dragging) applyPointer(event);
-        });
-        element.addEventListener("pointerup", (event) => {
-          dragging = false;
-          element.releasePointerCapture?.(event.pointerId);
-        });
-        element.addEventListener("pointercancel", () => {
-          dragging = false;
-        });
-        element.addEventListener("keydown", (event) => {
-          const keys = {
-            ArrowUp: 1,
-            ArrowRight: 1,
-            ArrowDown: -1,
-            ArrowLeft: -1,
-            PageUp: 10,
-            PageDown: -10,
-          };
-          if (event.key in keys) {
-            event.preventDefault();
-            onChange(state.volume + keys[event.key]);
-          } else if (event.key === "Home") {
-            event.preventDefault();
-            onChange(0);
-          } else if (event.key === "End") {
-            event.preventDefault();
-            onChange(100);
-          }
-        });
-      }
-
-      function buildAnalyzer() {
-        els.analyzer.innerHTML = "";
-        const columns = window.matchMedia("(max-width: 540px)").matches ? 20 : 28;
-        analyzerColumns = [];
-        for (let i = 0; i < columns; i += 1) {
-          const col = document.createElement("span");
-          col.className = "an-col";
-          const cells = [];
-          for (let r = 0; r < 8; r += 1) {
-            const cell = document.createElement("span");
-            cell.className = "an-cell";
-            cells.push(cell);
-            col.appendChild(cell);
-          }
-          analyzerColumns.push(cells);
-          els.analyzer.appendChild(col);
-        }
-      }
-
-      function animateAnalyzer() {
-        const on = active();
-        const t = performance.now() / 420;
-        analyzerColumns.forEach((cells, i) => {
-          const bias = 1 - Math.abs(i - analyzerColumns.length / 2) / analyzerColumns.length;
-          const wave = on ? 0.52 + 0.28 * Math.sin(t + i * 0.44) + 0.18 * Math.sin(t * 1.55 + i * 0.71) : 0.12;
-          const lit = Math.round(clamp(wave * bias, 0, 1) * cells.length);
-          cells.forEach((cell, row) => cell.classList.toggle("lit", cells.length - 1 - row < lit));
-        });
-        requestAnimationFrame(animateAnalyzer);
-      }
-
-      function renderMarkers(current) {
-        els.tunerTrack.querySelectorAll(".marker").forEach((marker) => marker.remove());
-        state.stations.forEach((station) => {
-          const marker = document.createElement("button");
-          marker.type = "button";
-          marker.className = `marker${station.id === current?.id ? " active" : ""}`;
-          marker.style.left = `${pctForFreq(station.mhz)}%`;
-          marker.title = `${station.name} ${station.mhz.toFixed(1)} MHz`;
-          marker.addEventListener("click", () => setFrequency(station.mhz));
-          els.tunerTrack.appendChild(marker);
-        });
-      }
-
-      function renderPresets(current) {
-        els.presetRail.innerHTML = "";
-        state.stations.forEach((station, index) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = `button min-h-14 px-3 py-2 text-left${station.id === current?.id ? " active" : ""}`;
-          button.innerHTML = `<span class="block font-mono text-[0.68rem] text-[#332413]/65">${pad2(index + 1)} / ${station.mhz.toFixed(1)} MHz</span><span class="block truncate font-mono text-sm font-semibold">${station.name}</span>`;
-          button.addEventListener("click", () => setFrequency(station.mhz));
-          els.presetRail.appendChild(button);
-        });
-      }
-
-      function render() {
-        const lock = closestStation();
-        const station = lock.station;
-        const isOn = active();
-        const signal = lock.tuned ? Math.max(18, Math.round((1 - lock.dist / 0.4) * 100)) : 0;
-        const timer = formatTimer(isOn ? state.remainingSec : state.durationSec);
-        const durationMinutes = Math.round(state.durationSec / 60);
-        const isTuning = Date.now() < state.tuningFocusUntil;
-        els.mainScreen.classList.toggle("tuning", isTuning);
-        els.freqReadout.textContent = state.freqMHz.toFixed(1);
-        els.focusFreqReadout.textContent = state.freqMHz.toFixed(1);
-        els.dialFreqReadout.textContent = state.freqMHz.toFixed(1);
-        els.dialDurationReadout.textContent = String(durationMinutes);
-        els.stationName.textContent = lock.tuned ? station.name : "SCANNING";
-        els.stationTag.textContent = lock.tuned ? station.tag : `nearest: ${station.name}`;
-        els.screenStatus.textContent = state.playerText;
-        els.topStatus.textContent = state.playerText;
-        els.signalText.textContent = lock.tuned ? `${signal}% LOCK` : "SEARCH";
-        els.screenVolume.textContent = String(state.volume);
-        els.faderVolumeReadout.textContent = String(state.volume);
-        els.timerReadout.textContent = timer;
-        els.volumeFader.setAttribute("aria-valuenow", String(state.volume));
-        els.volumeFader.setAttribute("aria-valuetext", `${state.volume} percent`);
-        els.volumeFaderFill.style.height = `${state.volume}%`;
-        els.volumeFaderHandle.style.bottom = `${(state.volume / 100) * Math.max(0, els.volumeFader.clientHeight - 24)}px`;
-        els.tunerNeedle.style.left = `${pctForFreq(state.freqMHz)}%`;
-        els.playButton.textContent = isOn ? "STOP" : "PLAY";
-        els.playButton.classList.toggle("active", isOn);
-        els.powerLed.classList.toggle("on", isOn);
-        els.lockLed.classList.toggle("on", lock.tuned);
-        els.apiStatus.textContent = state.apiStatus === "ready" ? "API READY" : state.apiStatus === "checking" ? "CHECKING API" : "API OFFLINE";
-        els.serviceSummary.textContent = `${state.mode} / ${Math.round(state.durationSec / 60)} min`;
-        els.modeMock.classList.toggle("active", state.mode === "mock");
-        els.modeReal.classList.toggle("active", state.mode === "real");
-        els.programText.textContent = isOn
-          ? state.segmentProgress.total
-            ? `${state.segmentProgress.queued}/${state.segmentProgress.total} segments queued`
-            : "Preparing generated signal"
-          : station.tracks?.[0] || "Ready for a generated test signal.";
-        renderMarkers(lock.tuned ? station : null);
-        renderPresets(lock.tuned ? station : null);
-      }
-
-      function isCurrentRun(runId) {
-        return runId === playback.runId;
-      }
-
-      function closePlaybackHardware() {
-        if (playback.eventSource) playback.eventSource.close();
-        playback.eventSource = null;
-        playback.sourceRefs.forEach((source) => {
-          try {
-            source.stop();
-          } catch {}
-        });
-        playback.sourceRefs = [];
-        if (playback.audioContext && playback.audioContext.state !== "closed") playback.audioContext.close().catch(() => {});
-        playback.audioContext = null;
-        playback.gainNode = null;
-        playback.activeApiBase = "";
-      }
-
-      async function stopPlayback(label = "STOPPED") {
-        playback.runId += 1;
-        closePlaybackHardware();
-        state.generationComplete = false;
-        state.segmentProgress = { queued: 0, played: 0, total: 0 };
-        state.remainingSec = 0;
-        setPlayer("idle", label);
-      }
-
-      function finishPlayback(label = "PLAYBACK COMPLETE") {
-        closePlaybackHardware();
-        state.generationComplete = false;
-        state.segmentProgress = { queued: 0, played: 0, total: 0 };
-        state.remainingSec = 0;
-        setPlayer("complete", label);
-      }
-
-      async function startEpisode() {
-        if (active()) {
-          await stopPlayback();
-          return;
-        }
-        const lock = closestStation();
-        const station = lock.station;
-        if (!lock.tuned) setFrequency(station.mhz);
-        await stopPlayback("STANDBY");
-        const runId = playback.runId + 1;
-        playback.runId = runId;
-        state.remainingSec = Math.max(60, state.durationSec);
-        state.segmentProgress = { queued: 0, played: 0, total: 0 };
-        setPlayer("starting", "STARTING");
-        try {
-          const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContextCtor) throw new Error("AUDIO UNSUPPORTED");
-          playback.audioContext = new AudioContextCtor();
-          playback.gainNode = playback.audioContext.createGain();
-          playback.gainNode.gain.value = state.volume / 100;
-          playback.gainNode.connect(playback.audioContext.destination);
-          await playback.audioContext.resume();
-          playback.nextStartTime = playback.audioContext.currentTime + 0.18;
-
-          const apiKeys = buildApiKeys();
-          const payload = episodePayloadFromStation(station);
-          if (Object.keys(apiKeys).length > 0) payload.api_keys = apiKeys;
-          const { data: job, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/episodes", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!isCurrentRun(runId)) return;
-          state.apiBase = apiBase;
-          els.apiBaseInput.value = apiBase;
-          state.apiStatus = "ready";
-          playback.activeApiBase = apiBase;
-          setPlayer("generating", job.vibe ? `TUNED ${job.vibe.name}` : `TUNED ${station.name}`);
-          const stream = new EventSource(`${apiBase}${job.events_url}`);
-          playback.eventSource = stream;
-          stream.addEventListener("status", (event) => {
-            if (!isCurrentRun(runId)) return;
-            const data = JSON.parse(event.data);
-            setPlayer(data.status === "rendering_audio" ? "playing" : "generating", humanStatus(data.status));
-          });
-          stream.addEventListener("script_ready", (event) => {
-            if (!isCurrentRun(runId)) return;
-            const data = JSON.parse(event.data);
-            state.segmentProgress = { ...state.segmentProgress, total: data.segment_count || 0 };
-            setPlayer("generating", `${data.segment_count || 0} SEGMENTS`);
-          });
-          stream.addEventListener("segment_ready", (event) => queueSegment(JSON.parse(event.data), runId));
-          stream.addEventListener("complete", (event) => {
-            if (!isCurrentRun(runId)) return;
-            const data = JSON.parse(event.data);
-            state.generationComplete = true;
-            if (playback.eventSource) playback.eventSource.close();
-            playback.eventSource = null;
-            if (state.segmentProgress.total > 0 && state.segmentProgress.played >= state.segmentProgress.total) finishPlayback();
-            else if (!data.audio_url && state.segmentProgress.queued === 0) finishPlayback("COMPLETE");
-            else setPlayer("playing", "ALL QUEUED");
-          });
-          stream.addEventListener("failed", (event) => {
-            if (!isCurrentRun(runId)) return;
-            const data = JSON.parse(event.data);
-            closePlaybackHardware();
-            state.remainingSec = 0;
-            setPlayer("failed", data.error || "FAILED");
-          });
-          stream.onerror = () => {
-            if (isCurrentRun(runId) && !state.generationComplete) {
-              state.playerText = "SIGNAL RETRY";
-              render();
-            }
-          };
-        } catch (error) {
-          if (!isCurrentRun(runId)) return;
-          closePlaybackHardware();
-          state.apiStatus = error?.status ? state.apiStatus : "offline";
-          state.remainingSec = 0;
-          setPlayer("failed", error.message || "PLAY FAILED");
-        }
-      }
-
-      async function queueSegment(segment, runId) {
-        const context = playback.audioContext;
-        if (!context || !playback.gainNode) return;
-        try {
-          const response = await fetch(`${playback.activeApiBase || cleanApiBase(state.apiBase)}${segment.audio_url}`);
-          if (!response.ok) throw new Error(`SEGMENT ${response.status}`);
-          const buffer = await context.decodeAudioData(await response.arrayBuffer());
-          if (!isCurrentRun(runId)) return;
-          const source = context.createBufferSource();
-          source.buffer = buffer;
-          source.connect(playback.gainNode);
-          const startAt = Math.max(playback.nextStartTime, context.currentTime + 0.06);
-          source.start(startAt);
-          playback.nextStartTime = startAt + buffer.duration + 0.04;
-          playback.sourceRefs.push(source);
-          state.segmentProgress = { ...state.segmentProgress, queued: state.segmentProgress.queued + 1 };
-          setPlayer("playing", `PLAYING ${segment.index + 1}`);
-          source.onended = () => {
-            if (!isCurrentRun(runId)) return;
-            state.segmentProgress = { ...state.segmentProgress, played: state.segmentProgress.played + 1 };
-            if (state.generationComplete && state.segmentProgress.total > 0 && state.segmentProgress.played >= state.segmentProgress.total) finishPlayback();
-            else render();
-          };
-        } catch (error) {
-          if (isCurrentRun(runId)) setPlayer("failed", error.message || "AUDIO FAILED");
-        }
-      }
-
-      function startTimer() {
-        setInterval(() => {
-          if (!active()) return;
-          state.remainingSec = Math.max(0, state.remainingSec - 1);
-          if (state.remainingSec <= 0) stopPlayback("TIMER DONE");
-          else render();
-        }, 1000);
-      }
-
-      async function checkApi() {
-        state.apiStatus = "checking";
-        render();
-        try {
-          const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes");
-          state.apiBase = apiBase;
-          els.apiBaseInput.value = apiBase;
-          if (Array.isArray(data.presets) && data.presets.length > 0) {
-            state.sourcePresets = data.presets.map((p) => ({ id: p.id, label: p.label || p.id }));
-            renderStationsEditor();
-          }
-          const saved = Array.isArray(data.vibes) ? data.vibes.map(stationFromVibe) : [];
-          if (saved.length > 0 && !loadStoredStations()) {
-            state.stations = saved;
-            state.freqMHz = saved[0].mhz;
-            frequencyDial?.setValue(state.freqMHz, false);
-          }
-          state.apiStatus = "ready";
-        } catch {
-          state.apiStatus = "offline";
-        }
-        render();
-      }
-
-      function renderKeysSummary() {
-        if (!els.keysSummary) return;
-        const count = Object.keys(buildApiKeys()).length;
-        els.keysSummary.textContent = count === 0 ? "none saved" : `${count} of 2 saved`;
-      }
-
-      function updateStation(idx, partial) {
-        state.stations[idx] = { ...state.stations[idx], ...partial };
-        persistStations();
-        renderStationsEditor();
-        render();
-      }
-
-      function makeSegmented(options, current, onChange) {
-        const wrap = document.createElement("div");
-        wrap.className = "grid gap-1";
-        wrap.style.gridTemplateColumns = `repeat(${options.length}, minmax(0, 1fr))`;
-        options.forEach(([value, label]) => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "button mode min-h-10 px-2 py-1 font-mono text-xs font-semibold" + (value === current ? " active" : "");
-          btn.textContent = label;
-          btn.addEventListener("click", () => onChange(value));
-          wrap.appendChild(btn);
-        });
-        return wrap;
-      }
-
-      function makeField(labelText, control) {
-        const field = document.createElement("label");
-        field.className = "grid gap-1";
-        const span = document.createElement("span");
-        span.className = "label";
-        span.textContent = labelText;
-        field.append(span, control);
-        return field;
-      }
-
-      function buildStationDetails(station, idx) {
-        const det = document.createElement("details");
-        det.className = "rounded-[6px] border border-[#43311d]/40 bg-[#f5e7c5]/50 p-2";
-        const summary = document.createElement("summary");
-        summary.className = "flex cursor-pointer list-none items-center justify-between gap-2";
-        summary.addEventListener("click", (event) => {
-          if (event.defaultPrevented) return;
-          if (!det.open) setFrequency(station.mhz);
-        });
-        const sumLeft = document.createElement("span");
-        sumLeft.className = "truncate font-mono text-xs font-semibold text-[#2a2116]";
-        const presetCount = (station.sourcePresetIds || []).length;
-        const urlCount = (station.urls || []).length;
-        const bits = [`${station.name}`, `${station.mhz.toFixed(1)} MHz`];
-        if (presetCount) bits.push(`${presetCount} preset${presetCount === 1 ? "" : "s"}`);
-        if (urlCount) bits.push(`${urlCount} RSS`);
-        sumLeft.textContent = bits.join(" · ");
-        const sumRight = document.createElement("div");
-        sumRight.className = "flex items-center gap-1";
-        const tuneBtn = document.createElement("button");
-        tuneBtn.type = "button";
-        tuneBtn.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
-        tuneBtn.textContent = "TUNE";
-        tuneBtn.title = "Tune dial to this station";
-        tuneBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          setFrequency(station.mhz);
-        });
-        const delBtn = document.createElement("button");
-        delBtn.type = "button";
-        delBtn.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
-        delBtn.textContent = "×";
-        delBtn.title = "Remove station";
-        delBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          state.stations = state.stations.filter((_, i) => i !== idx);
-          if (state.stations.length === 0) state.stations = fallbackStations.slice(0, 1);
-          persistStations();
-          renderStationsEditor();
-          render();
-        });
-        sumRight.append(tuneBtn, delBtn);
-        summary.append(sumLeft, sumRight);
-        det.appendChild(summary);
-
-        const body = document.createElement("div");
-        body.className = "mt-2 grid gap-2";
-
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.className = "input min-h-10 px-2 py-1 text-sm";
-        nameInput.value = station.name;
-        nameInput.maxLength = 32;
-        nameInput.addEventListener("change", () => updateStation(idx, { name: nameInput.value.toUpperCase() || station.name }));
-        body.appendChild(makeField("NAME", nameInput));
-
-        const mhzInput = document.createElement("input");
-        mhzInput.type = "number";
-        mhzInput.className = "input min-h-10 px-2 py-1 font-mono text-sm text-right";
-        mhzInput.step = "0.1";
-        mhzInput.min = String(FREQ_MIN);
-        mhzInput.max = String(FREQ_MAX);
-        mhzInput.value = String(station.mhz);
-        mhzInput.addEventListener("change", () => {
-          const next = clamp(Number(mhzInput.value) || station.mhz, FREQ_MIN, FREQ_MAX);
-          updateStation(idx, { mhz: Math.round(next * 10) / 10 });
-        });
-        body.appendChild(makeField("MHZ", mhzInput));
-
-        const presetWrap = document.createElement("div");
-        presetWrap.className = "grid gap-1 sm:grid-cols-2";
-        const selectedPresets = new Set(station.sourcePresetIds || []);
-        state.sourcePresets.forEach((preset) => {
-          const lbl = document.createElement("label");
-          lbl.className = "flex items-center gap-2 font-mono text-xs text-[#2a2116] cursor-pointer";
-          const cb = document.createElement("input");
-          cb.type = "checkbox";
-          cb.checked = selectedPresets.has(preset.id);
-          cb.addEventListener("change", () => {
-            const next = new Set(state.stations[idx].sourcePresetIds || []);
-            if (cb.checked) next.add(preset.id);
-            else next.delete(preset.id);
-            updateStation(idx, { sourcePresetIds: Array.from(next) });
-          });
-          const span = document.createElement("span");
-          span.textContent = preset.label;
-          lbl.append(cb, span);
-          presetWrap.appendChild(lbl);
-        });
-        body.appendChild(makeField("SOURCES", presetWrap));
-
-        const rssArea = document.createElement("textarea");
-        rssArea.className = "input px-2 py-1 font-mono text-xs";
-        rssArea.rows = 3;
-        rssArea.placeholder = "https://example.com/rss\nhttps://another.com/feed";
-        rssArea.value = (station.urls || []).join("\n");
-        const persistRss = () => {
-          const urls = rssArea.value
-            .split(/[\n,]+/)
-            .map((u) => u.trim())
-            .filter((u) => /^https?:\/\//i.test(u));
-          if (JSON.stringify(urls) === JSON.stringify(state.stations[idx].urls || [])) return;
-          state.stations[idx] = { ...state.stations[idx], urls };
-          persistStations();
-        };
-        rssArea.addEventListener("input", persistRss);
-        rssArea.addEventListener("blur", () => {
-          persistRss();
-          renderStationsEditor();
-        });
-        body.appendChild(makeField(`CUSTOM RSS · ${(station.urls || []).length}`, rssArea));
-
-        body.appendChild(
-          makeField(
-            "TONE",
-            makeSegmented(
-              [["casual", "Casual"], ["pro", "Professional"]],
-              station.tone >= 50 ? "pro" : "casual",
-              (v) => updateStation(idx, { tone: v === "pro" ? 75 : 25 }),
-            ),
-          ),
-        );
-
-        body.appendChild(
-          makeField(
-            "HOSTS",
-            makeSegmented(
-              [[1, "Solo"], [2, "Duo"]],
-              station.hosts,
-              (v) => updateStation(idx, { hosts: v }),
-            ),
-          ),
-        );
-
-        body.appendChild(
-          makeField(
-            "VOICE A",
-            makeSegmented(
-              [["F", "F"], ["M", "M"]],
-              station.voiceA,
-              (v) => updateStation(idx, { voiceA: v }),
-            ),
-          ),
-        );
-
-        if (station.hosts === 2) {
-          body.appendChild(
-            makeField(
-              "VOICE B",
-              makeSegmented(
-                [["F", "F"], ["M", "M"]],
-                station.voiceB,
-                (v) => updateStation(idx, { voiceB: v }),
-              ),
-            ),
-          );
-        }
-
-        det.appendChild(body);
-        return det;
-      }
-
-      function renderStationsEditor() {
-        if (!els.stationsEditor) return;
-        const openIds = new Set();
-        Array.from(els.stationsEditor.children).forEach((node) => {
-          if (node.open && node.dataset.stationId) openIds.add(node.dataset.stationId);
-        });
-        els.stationsEditor.innerHTML = "";
-        state.stations.forEach((station, idx) => {
-          const det = buildStationDetails(station, idx);
-          det.dataset.stationId = String(station.id);
-          if (openIds.has(String(station.id))) det.open = true;
-          els.stationsEditor.appendChild(det);
-        });
-        if (els.stationsSummary) els.stationsSummary.textContent = `${state.stations.length} station${state.stations.length === 1 ? "" : "s"}`;
-      }
-
-      function boot() {
-        [
-          "mainScreen",
-          "powerLed",
-          "topStatus",
-          "apiStatus",
-          "frequencyDialWrap",
-          "frequencyDial",
-          "dialFreqReadout",
-          "freqDown",
-          "freqUp",
-          "screenStatus",
-          "lockLed",
-          "signalText",
-          "freqReadout",
-          "focusFreqReadout",
-          "stationName",
-          "stationTag",
-          "screenVolume",
-          "timerReadout",
-          "analyzer",
-          "tunerTrack",
-          "tunerNeedle",
-          "programText",
-          "playButton",
-          "durationDialWrap",
-          "durationDial",
-          "dialDurationReadout",
-          "volumeFader",
-          "faderVolumeReadout",
-          "volumeFaderFill",
-          "volumeFaderHandle",
-          "presetRail",
-          "serviceSummary",
-          "apiBaseInput",
-          "modeMock",
-          "modeReal",
-          "keysSummary",
-          "keyOpenRouter",
-          "keyElevenLabs",
-          "stationsSummary",
-          "stationsEditor",
-          "addStation",
-          "resetStations",
-        ].forEach((id) => {
-          els[id] = document.getElementById(id);
-        });
-
-        try {
-          const storedVolume = localStorage.getItem("vibefm.volume");
-          const storedMode = localStorage.getItem("vibefm.mode");
-          const storedDuration = localStorage.getItem("vibefm.durationSec");
-          const storedApi = localStorage.getItem("vibefm.apiBase");
-          if (storedVolume != null) state.volume = Math.round(clamp(Number(storedVolume) || state.volume, 0, 100));
-          if (storedMode) state.mode = storedMode;
-          if (storedDuration) state.durationSec = Math.round(clamp((Number(storedDuration) || state.durationSec) / 60, DURATION_MIN, DURATION_MAX)) * 60;
-          if (storedApi) state.apiBase = storedApi;
-        } catch {}
-
-        state.keys = loadStoredKeys();
-        const storedStations = loadStoredStations();
-        if (storedStations) {
-          state.stations = storedStations;
-          state.freqMHz = storedStations[0].mhz;
-        }
-
-        tickMarks(els.frequencyDialWrap);
-        tickMarks(els.durationDialWrap);
-        frequencyDial = bindDial(els.frequencyDial, {
-          min: FREQ_MIN,
-          max: FREQ_MAX,
-          step: 0.1,
-          value: state.freqMHz,
-          format: (value) => `${value.toFixed(1)} MHz`,
-          onChange: setFrequency,
-        });
-        durationDial = bindDial(els.durationDial, {
-          min: DURATION_MIN,
-          max: DURATION_MAX,
-          step: 1,
-          value: Math.round(state.durationSec / 60),
-          format: (value) => `${Math.round(value)} minutes`,
-          onChange: setDurationMinutes,
-        });
-
-        els.apiBaseInput.value = state.apiBase;
-        els.freqDown.addEventListener("click", () => setFrequency(state.freqMHz - 0.1));
-        els.freqUp.addEventListener("click", () => setFrequency(state.freqMHz + 0.1));
-        els.playButton.addEventListener("click", startEpisode);
-        bindFader(els.volumeFader, setVolume);
-        els.modeMock.addEventListener("click", () => {
-          state.mode = "mock";
-          try {
-            localStorage.setItem("vibefm.mode", state.mode);
-          } catch {}
-          render();
-        });
-        els.modeReal.addEventListener("click", () => {
-          state.mode = "real";
-          try {
-            localStorage.setItem("vibefm.mode", state.mode);
-          } catch {}
-          render();
-        });
-        els.apiBaseInput.addEventListener("input", () => {
-          state.apiBase = cleanApiBase(els.apiBaseInput.value);
-          try {
-            localStorage.setItem("vibefm.apiBase", state.apiBase);
-          } catch {}
-          clearTimeout(apiCheckTimer);
-          apiCheckTimer = setTimeout(checkApi, 350);
-          render();
-        });
-
-        if (els.keyOpenRouter) {
-          els.keyOpenRouter.value = state.keys.openrouter;
-          els.keyOpenRouter.addEventListener("input", () => {
-            state.keys.openrouter = els.keyOpenRouter.value.trim();
-            persistKey("openrouter", state.keys.openrouter);
-            renderKeysSummary();
-          });
-        }
-        if (els.keyElevenLabs) {
-          els.keyElevenLabs.value = state.keys.elevenlabs;
-          els.keyElevenLabs.addEventListener("input", () => {
-            state.keys.elevenlabs = els.keyElevenLabs.value.trim();
-            persistKey("elevenlabs", state.keys.elevenlabs);
-            renderKeysSummary();
-          });
-        }
-        if (els.addStation) {
-          els.addStation.addEventListener("click", () => {
-            const mhz = nextFreeFrequency();
-            const newStation = {
-              id: Date.now(),
-              backendId: null,
-              name: "NEW STATION",
-              tag: "custom",
-              mhz,
-              hosts: 1,
-              voiceA: "F",
-              voiceB: "M",
-              tone: 25,
-              urls: [],
-              sourcePresetIds: state.sourcePresets.map((p) => p.id),
-              tracks: ["custom"],
-            };
-            state.stations = [...state.stations, newStation];
-            persistStations();
-            renderStationsEditor();
-            const newIdx = state.stations.length - 1;
-            const newDetails = els.stationsEditor?.children[newIdx];
-            if (newDetails) newDetails.open = true;
-            setFrequency(mhz);
-            render();
-          });
-        }
-        if (els.resetStations) {
-          els.resetStations.addEventListener("click", () => {
-            try { localStorage.removeItem("vibefm.stations"); } catch {}
-            state.stations = fallbackStations;
-            state.freqMHz = fallbackStations[0].mhz;
-            frequencyDial?.setValue(state.freqMHz, false);
-            renderStationsEditor();
-            render();
-          });
-        }
-
-        window.addEventListener("resize", buildAnalyzer);
-        buildAnalyzer();
-        render();
-        renderKeysSummary();
-        renderStationsEditor();
-        startTimer();
-        requestAnimationFrame(animateAnalyzer);
-        checkApi();
-      }
-
-      document.addEventListener("DOMContentLoaded", boot);
-    </script>
+    <script type="module" src="./radio.js"></script>
     <template id="__bundler_thumbnail">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
         <rect width="200" height="200" fill="#0e1015" />
-        <rect x="24" y="42" width="152" height="112" rx="8" fill="#c8ad76" />
-        <rect x="54" y="62" width="92" height="52" rx="5" fill="#061b1d" />
-        <circle cx="50" cy="128" r="18" fill="#8d6330" />
-        <circle cx="150" cy="128" r="18" fill="#8d6330" />
-        <path d="M75 86h30" stroke="#ffb347" stroke-width="5" stroke-linecap="round" />
-        <path d="M111 86h14" stroke="#ffc15d" stroke-width="5" stroke-linecap="round" />
+        <rect x="16" y="48" width="168" height="104" rx="12" fill="#d8c8a4" />
+        <rect x="28" y="62" width="144" height="28" rx="6" fill="#160c04" />
+        <rect x="32" y="98" width="136" height="38" rx="5" fill="#1a140a" />
+        <circle cx="50" cy="76" r="12" fill="#b98d43" />
+        <circle cx="150" cy="76" r="12" fill="#b98d43" />
+        <path d="M72 76h40" stroke="#ffd58a" stroke-width="5" stroke-linecap="round" />
+        <path d="M116 76h14" stroke="#ffb347" stroke-width="5" stroke-linecap="round" />
       </svg>
     </template>
   </body>

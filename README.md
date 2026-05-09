@@ -350,6 +350,7 @@ Treat the HTML as the **source of truth for visuals and interactions** — extra
 ```
 frontend/
 ├── index.html                      ← static HTML entry
+├── radio.js                        ← active vanilla UI behavior
 ├── src/tailwind.css                ← Tailwind v4 CSS entry
 ├── vite.config.js                  ← frontend dev server + /api proxy
 ├── radio.jsx                       ← legacy React prototype, no longer loaded

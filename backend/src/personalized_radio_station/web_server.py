@@ -43,6 +43,7 @@ FRONTEND_FILES = {
     FRONTEND_ENTRY,
     "colors_and_type.css",
     "landing.html",
+    "radio.js",
     "styles.css",
     "radio.jsx",
 }
