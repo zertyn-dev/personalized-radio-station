@@ -742,12 +742,12 @@
             name: String(s.name || "STATION").toUpperCase(),
             tag: s.tag || "custom",
             mhz: clamp(Number(s.mhz) || 99.0, FREQ_MIN, FREQ_MAX),
-            hosts: 1,
-            voiceA: "F",
-            voiceB: "M",
-            tone: 25,
+            hosts: s.hosts === 2 ? 2 : 1,
+            voiceA: s.voiceA === "M" ? "M" : "F",
+            voiceB: s.voiceB === "M" ? "M" : "F",
+            tone: Number(s.tone) >= 50 ? 75 : 25,
             urls: Array.isArray(s.urls) ? s.urls : [],
-            sourcePresetIds: [],
+            sourcePresetIds: Array.isArray(s.sourcePresetIds) ? s.sourcePresetIds : [],
             tracks: ["custom"],
           }));
         } catch {
@@ -762,7 +762,12 @@
             name: s.name,
             tag: s.tag,
             mhz: s.mhz,
+            hosts: s.hosts,
+            voiceA: s.voiceA,
+            voiceB: s.voiceB,
+            tone: s.tone,
             urls: s.urls || [],
+            sourcePresetIds: s.sourcePresetIds || [],
           }));
           localStorage.setItem("vibefm.stations", JSON.stringify(slim));
         } catch {}
@@ -782,6 +787,12 @@
         generationComplete: false,
         stations: fallbackStations,
         keys: { openrouter: "", elevenlabs: "" },
+        sourcePresets: [
+          { id: "google_news", label: "Google News" },
+          { id: "hacker_news", label: "Hacker News" },
+          { id: "techcrunch", label: "TechCrunch" },
+          { id: "product_hunt", label: "Product Hunt" },
+        ],
       };
 
       const playback = {
@@ -1304,6 +1315,10 @@
           const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes");
           state.apiBase = apiBase;
           els.apiBaseInput.value = apiBase;
+          if (Array.isArray(data.presets) && data.presets.length > 0) {
+            state.sourcePresets = data.presets.map((p) => ({ id: p.id, label: p.label || p.id }));
+            renderStationsEditor();
+          }
           const saved = Array.isArray(data.vibes) ? data.vibes.map(stationFromVibe) : [];
           if (saved.length > 0 && !loadStoredStations()) {
             state.stations = saved;
@@ -1323,52 +1338,178 @@
         els.keysSummary.textContent = count === 0 ? "none saved" : `${count} of 2 saved`;
       }
 
+      function updateStation(idx, partial) {
+        state.stations[idx] = { ...state.stations[idx], ...partial };
+        persistStations();
+        renderStationsEditor();
+        render();
+      }
+
+      function makeSegmented(options, current, onChange) {
+        const wrap = document.createElement("div");
+        wrap.className = "grid gap-1";
+        wrap.style.gridTemplateColumns = `repeat(${options.length}, minmax(0, 1fr))`;
+        options.forEach(([value, label]) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "button mode min-h-10 px-2 py-1 font-mono text-xs font-semibold" + (value === current ? " active" : "");
+          btn.textContent = label;
+          btn.addEventListener("click", () => onChange(value));
+          wrap.appendChild(btn);
+        });
+        return wrap;
+      }
+
+      function makeField(labelText, control) {
+        const field = document.createElement("label");
+        field.className = "grid gap-1";
+        const span = document.createElement("span");
+        span.className = "label";
+        span.textContent = labelText;
+        field.append(span, control);
+        return field;
+      }
+
+      function buildStationDetails(station, idx) {
+        const det = document.createElement("details");
+        det.className = "rounded-[6px] border border-[#43311d]/40 bg-[#f5e7c5]/50 p-2";
+        const summary = document.createElement("summary");
+        summary.className = "flex cursor-pointer list-none items-center justify-between gap-2";
+        const sumLeft = document.createElement("span");
+        sumLeft.className = "truncate font-mono text-xs font-semibold text-[#2a2116]";
+        sumLeft.textContent = `${station.name} · ${station.mhz.toFixed(1)} MHz`;
+        const sumRight = document.createElement("button");
+        sumRight.type = "button";
+        sumRight.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
+        sumRight.textContent = "×";
+        sumRight.title = "Remove station";
+        sumRight.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          state.stations = state.stations.filter((_, i) => i !== idx);
+          if (state.stations.length === 0) state.stations = fallbackStations.slice(0, 1);
+          persistStations();
+          renderStationsEditor();
+          render();
+        });
+        summary.append(sumLeft, sumRight);
+        det.appendChild(summary);
+
+        const body = document.createElement("div");
+        body.className = "mt-2 grid gap-2";
+
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.className = "input min-h-10 px-2 py-1 text-sm";
+        nameInput.value = station.name;
+        nameInput.maxLength = 32;
+        nameInput.addEventListener("change", () => updateStation(idx, { name: nameInput.value.toUpperCase() || station.name }));
+        body.appendChild(makeField("NAME", nameInput));
+
+        const mhzInput = document.createElement("input");
+        mhzInput.type = "number";
+        mhzInput.className = "input min-h-10 px-2 py-1 font-mono text-sm text-right";
+        mhzInput.step = "0.1";
+        mhzInput.min = String(FREQ_MIN);
+        mhzInput.max = String(FREQ_MAX);
+        mhzInput.value = String(station.mhz);
+        mhzInput.addEventListener("change", () => {
+          const next = clamp(Number(mhzInput.value) || station.mhz, FREQ_MIN, FREQ_MAX);
+          updateStation(idx, { mhz: Math.round(next * 10) / 10 });
+        });
+        body.appendChild(makeField("MHZ", mhzInput));
+
+        const presetWrap = document.createElement("div");
+        presetWrap.className = "grid gap-1 sm:grid-cols-2";
+        const selectedPresets = new Set(station.sourcePresetIds || []);
+        state.sourcePresets.forEach((preset) => {
+          const lbl = document.createElement("label");
+          lbl.className = "flex items-center gap-2 font-mono text-xs text-[#2a2116] cursor-pointer";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.checked = selectedPresets.has(preset.id);
+          cb.addEventListener("change", () => {
+            const next = new Set(state.stations[idx].sourcePresetIds || []);
+            if (cb.checked) next.add(preset.id);
+            else next.delete(preset.id);
+            updateStation(idx, { sourcePresetIds: Array.from(next) });
+          });
+          const span = document.createElement("span");
+          span.textContent = preset.label;
+          lbl.append(cb, span);
+          presetWrap.appendChild(lbl);
+        });
+        body.appendChild(makeField("SOURCES", presetWrap));
+
+        const rssArea = document.createElement("textarea");
+        rssArea.className = "input px-2 py-1 font-mono text-xs";
+        rssArea.rows = 3;
+        rssArea.placeholder = "https://example.com/rss\nhttps://another.com/feed";
+        rssArea.value = (station.urls || []).join("\n");
+        rssArea.addEventListener("change", () => {
+          const urls = rssArea.value
+            .split(/\n+/)
+            .map((u) => u.trim())
+            .filter((u) => /^https?:\/\//i.test(u));
+          updateStation(idx, { urls });
+        });
+        body.appendChild(makeField(`CUSTOM RSS · ${(station.urls || []).length}`, rssArea));
+
+        body.appendChild(
+          makeField(
+            "TONE",
+            makeSegmented(
+              [["casual", "Casual"], ["pro", "Professional"]],
+              station.tone >= 50 ? "pro" : "casual",
+              (v) => updateStation(idx, { tone: v === "pro" ? 75 : 25 }),
+            ),
+          ),
+        );
+
+        body.appendChild(
+          makeField(
+            "HOSTS",
+            makeSegmented(
+              [[1, "Solo"], [2, "Duo"]],
+              station.hosts,
+              (v) => updateStation(idx, { hosts: v }),
+            ),
+          ),
+        );
+
+        body.appendChild(
+          makeField(
+            "VOICE A",
+            makeSegmented(
+              [["F", "F"], ["M", "M"]],
+              station.voiceA,
+              (v) => updateStation(idx, { voiceA: v }),
+            ),
+          ),
+        );
+
+        if (station.hosts === 2) {
+          body.appendChild(
+            makeField(
+              "VOICE B",
+              makeSegmented(
+                [["F", "F"], ["M", "M"]],
+                station.voiceB,
+                (v) => updateStation(idx, { voiceB: v }),
+              ),
+            ),
+          );
+        }
+
+        det.appendChild(body);
+        return det;
+      }
+
       function renderStationsEditor() {
         if (!els.stationsEditor) return;
         els.stationsEditor.innerHTML = "";
         state.stations.forEach((station, idx) => {
-          const row = document.createElement("div");
-          row.className = "grid gap-2 items-center";
-          row.style.gridTemplateColumns = "1fr 72px auto";
-          const nameInput = document.createElement("input");
-          nameInput.className = "input min-h-10 px-2 py-1 text-sm";
-          nameInput.type = "text";
-          nameInput.value = station.name;
-          nameInput.maxLength = 32;
-          nameInput.addEventListener("change", () => {
-            state.stations[idx] = { ...station, name: nameInput.value.toUpperCase() || station.name };
-            persistStations();
-            renderStationsEditor();
-            render();
-          });
-          const mhzInput = document.createElement("input");
-          mhzInput.className = "input min-h-10 px-2 py-1 font-mono text-sm text-right";
-          mhzInput.type = "number";
-          mhzInput.step = "0.1";
-          mhzInput.min = String(FREQ_MIN);
-          mhzInput.max = String(FREQ_MAX);
-          mhzInput.value = String(station.mhz);
-          mhzInput.addEventListener("change", () => {
-            const next = clamp(Number(mhzInput.value) || station.mhz, FREQ_MIN, FREQ_MAX);
-            state.stations[idx] = { ...station, mhz: Math.round(next * 10) / 10 };
-            persistStations();
-            renderStationsEditor();
-            render();
-          });
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "button min-h-10 px-3 font-mono text-xs font-semibold";
-          remove.textContent = "×";
-          remove.title = "Remove station";
-          remove.addEventListener("click", () => {
-            state.stations = state.stations.filter((_, i) => i !== idx);
-            if (state.stations.length === 0) state.stations = fallbackStations.slice(0, 1);
-            persistStations();
-            renderStationsEditor();
-            render();
-          });
-          row.append(nameInput, mhzInput, remove);
-          els.stationsEditor.appendChild(row);
+          els.stationsEditor.appendChild(buildStationDetails(station, idx));
         });
         if (els.stationsSummary) els.stationsSummary.textContent = `${state.stations.length} station${state.stations.length === 1 ? "" : "s"}`;
       }
@@ -1533,7 +1674,7 @@
                 voiceB: "M",
                 tone: 25,
                 urls: [],
-                sourcePresetIds: [],
+                sourcePresetIds: state.sourcePresets.map((p) => p.id),
                 tracks: ["custom"],
               },
             ];

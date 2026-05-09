@@ -1039,9 +1039,13 @@ def _apply_payload_to_config(config: AppConfig, payload: dict[str, Any]) -> AppC
         news = replace(
             news, topics=_clean_topics(payload.get("topics"), topic_fallback)
         )
-    rss_feeds = _clean_rss_feeds(
+    custom_feeds = _clean_rss_feeds(
         payload.get("rss_feeds", payload.get("rss_urls", payload.get("rss")))
     )
+    preset_feeds = _resolve_source_preset_feeds(
+        payload.get("source_preset_ids", payload.get("source_presets"))
+    )
+    rss_feeds = _dedupe_strings([*preset_feeds, *custom_feeds])
     if payload.get("replace_rss_feeds"):
         news = replace(news, rss_feeds=rss_feeds)
     elif rss_feeds:
@@ -1075,6 +1079,30 @@ def _apply_payload_to_config(config: AppConfig, payload: dict[str, Any]) -> AppC
         _optional_string(payload.get("voice_gender")),
         _optional_string(payload.get("host_format")),
     )
+
+
+def _resolve_source_preset_feeds(value: Any) -> list[str]:
+    from .vibes import PRESET_RSS_SOURCES
+
+    if value is None:
+        return []
+    if isinstance(value, str):
+        candidates: list[Any] = re.split(r"[\n,]+", value)
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        candidates = [value]
+
+    feeds: list[str] = []
+    for raw in candidates:
+        if isinstance(raw, dict):
+            preset_id = str(raw.get("id", "")).strip().lower()
+        else:
+            preset_id = str(raw).strip().lower()
+        source = PRESET_RSS_SOURCES.get(preset_id)
+        if source:
+            feeds.append(source["url"])
+    return _dedupe_strings(feeds)
 
 
 def _clean_host_format(value: Any) -> str:
