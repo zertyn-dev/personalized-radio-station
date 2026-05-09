@@ -10,7 +10,7 @@ from personalized_radio_station.weather import WeatherReport
 
 
 class ScriptTests(unittest.TestCase):
-    def test_prompt_requests_tuned_in_opening_and_single_voice(self) -> None:
+    def test_prompt_requests_time_of_day_greeting_and_single_voice(self) -> None:
         with TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.yaml"
             config_path.write_text(
@@ -59,12 +59,17 @@ tts:
                 precipitation_mm=0,
                 wind_speed_kmh=5,
                 weather_code=1,
+                local_time="2025-05-09T08:30",
+                time_of_day="morning",
             ),
             config,
         )
 
-        self.assertIn("already_on_air_listener_just_tuned_in", prompt)
-        self.assertIn("station was already playing", prompt)
+        self.assertNotIn("already_on_air_listener_just_tuned_in", prompt)
+        self.assertNotIn("station was already playing", prompt)
+        self.assertIn("clean station greeting", prompt)
+        self.assertIn("Do not start mid-thought", prompt)
+        self.assertIn('"time_of_day": "morning"', prompt)
         self.assertIn('Use the voice label \\"host\\" for every segment.', prompt)
         self.assertIn("casual should feel more like vibes", prompt)
         self.assertIn("professional should feel slightly more expert", prompt)
