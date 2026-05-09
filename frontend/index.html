@@ -1899,11 +1899,12 @@
       function buildStationDetails(station, idx) {
         const det = document.createElement("details");
         det.className = "rounded-[6px] border border-[#43311d]/40 bg-[#f5e7c5]/50 p-2";
-        det.addEventListener("toggle", () => {
-          if (det.open) setFrequency(station.mhz);
-        });
         const summary = document.createElement("summary");
         summary.className = "flex cursor-pointer list-none items-center justify-between gap-2";
+        summary.addEventListener("click", (event) => {
+          if (event.defaultPrevented) return;
+          if (!det.open) setFrequency(station.mhz);
+        });
         const sumLeft = document.createElement("span");
         sumLeft.className = "truncate font-mono text-xs font-semibold text-[#2a2116]";
         const presetCount = (station.sourcePresetIds || []).length;
@@ -2061,9 +2062,16 @@
 
       function renderStationsEditor() {
         if (!els.stationsEditor) return;
+        const openIds = new Set();
+        Array.from(els.stationsEditor.children).forEach((node) => {
+          if (node.open && node.dataset.stationId) openIds.add(node.dataset.stationId);
+        });
         els.stationsEditor.innerHTML = "";
         state.stations.forEach((station, idx) => {
-          els.stationsEditor.appendChild(buildStationDetails(station, idx));
+          const det = buildStationDetails(station, idx);
+          det.dataset.stationId = String(station.id);
+          if (openIds.has(String(station.id))) det.open = true;
+          els.stationsEditor.appendChild(det);
         });
         if (els.stationsSummary) els.stationsSummary.textContent = `${state.stations.length} station${state.stations.length === 1 ? "" : "s"}`;
       }
