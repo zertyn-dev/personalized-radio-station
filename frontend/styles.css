@@ -1379,17 +1379,36 @@ body::after {
     display: none;
   }
 
-  .settings-btn {
+  .settings-btn,
+  .top-play-btn {
     position: fixed;
-    top: max(10px, env(safe-area-inset-top));
-    right: 12px;
-    width: 86px;
-    height: 30px;
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    width: 96px;
+    min-width: 0;
+    height: 36px;
     border-radius: 6px;
     z-index: 30;
     font-size: 8px;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.18em;
     border-bottom: 1px solid rgba(60,40,15,0.45);
+  }
+
+  .settings-btn {
+    left: calc(50% + 6px);
+    right: auto;
+  }
+
+  .top-play-btn {
+    left: auto;
+    right: calc(50% + 6px);
+  }
+
+  .settings-btn:active,
+  .settings-btn.active,
+  .top-play-btn:active,
+  .top-play-btn.active {
+    transform: translateY(2px);
   }
 
   .body {
@@ -1400,7 +1419,7 @@ body::after {
     padding:
       calc(12px + env(safe-area-inset-top))
       12px
-      calc(10px + env(safe-area-inset-bottom));
+      calc(58px + env(safe-area-inset-bottom));
     border-radius: 0;
     overflow: hidden;
     box-shadow: none;
@@ -1580,7 +1599,7 @@ body::after {
 
   .grille-area {
     position: fixed;
-    inset: calc(54px + env(safe-area-inset-top)) 10px calc(78px + env(safe-area-inset-bottom)) 10px;
+    inset: calc(12px + env(safe-area-inset-top)) 10px calc(58px + env(safe-area-inset-bottom)) 10px;
     height: auto;
     margin: 0;
     z-index: 20;
