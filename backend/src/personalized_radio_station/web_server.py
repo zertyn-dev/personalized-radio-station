@@ -1034,7 +1034,7 @@ def _apply_payload_to_config(config: AppConfig, payload: dict[str, Any]) -> AppC
         updates["duration"] = parse_duration(duration)
 
     news = config.news
-    if "topics" in payload:
+    if "topics" in payload or payload.get("replace_topics"):
         topic_fallback = [] if payload.get("replace_topics") else None
         news = replace(
             news, topics=_clean_topics(payload.get("topics"), topic_fallback)

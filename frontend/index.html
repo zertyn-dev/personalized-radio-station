@@ -1899,17 +1899,37 @@
       function buildStationDetails(station, idx) {
         const det = document.createElement("details");
         det.className = "rounded-[6px] border border-[#43311d]/40 bg-[#f5e7c5]/50 p-2";
+        det.addEventListener("toggle", () => {
+          if (det.open) setFrequency(station.mhz);
+        });
         const summary = document.createElement("summary");
         summary.className = "flex cursor-pointer list-none items-center justify-between gap-2";
         const sumLeft = document.createElement("span");
         sumLeft.className = "truncate font-mono text-xs font-semibold text-[#2a2116]";
-        sumLeft.textContent = `${station.name} · ${station.mhz.toFixed(1)} MHz`;
-        const sumRight = document.createElement("button");
-        sumRight.type = "button";
-        sumRight.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
-        sumRight.textContent = "×";
-        sumRight.title = "Remove station";
-        sumRight.addEventListener("click", (event) => {
+        const presetCount = (station.sourcePresetIds || []).length;
+        const urlCount = (station.urls || []).length;
+        const bits = [`${station.name}`, `${station.mhz.toFixed(1)} MHz`];
+        if (presetCount) bits.push(`${presetCount} preset${presetCount === 1 ? "" : "s"}`);
+        if (urlCount) bits.push(`${urlCount} RSS`);
+        sumLeft.textContent = bits.join(" · ");
+        const sumRight = document.createElement("div");
+        sumRight.className = "flex items-center gap-1";
+        const tuneBtn = document.createElement("button");
+        tuneBtn.type = "button";
+        tuneBtn.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
+        tuneBtn.textContent = "TUNE";
+        tuneBtn.title = "Tune dial to this station";
+        tuneBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setFrequency(station.mhz);
+        });
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "button min-h-8 px-2 font-mono text-xs font-semibold";
+        delBtn.textContent = "×";
+        delBtn.title = "Remove station";
+        delBtn.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
           state.stations = state.stations.filter((_, i) => i !== idx);
@@ -1918,6 +1938,7 @@
           renderStationsEditor();
           render();
         });
+        sumRight.append(tuneBtn, delBtn);
         summary.append(sumLeft, sumRight);
         det.appendChild(summary);
 
@@ -1972,12 +1993,19 @@
         rssArea.rows = 3;
         rssArea.placeholder = "https://example.com/rss\nhttps://another.com/feed";
         rssArea.value = (station.urls || []).join("\n");
-        rssArea.addEventListener("change", () => {
+        const persistRss = () => {
           const urls = rssArea.value
-            .split(/\n+/)
+            .split(/[\n,]+/)
             .map((u) => u.trim())
             .filter((u) => /^https?:\/\//i.test(u));
-          updateStation(idx, { urls });
+          if (JSON.stringify(urls) === JSON.stringify(state.stations[idx].urls || [])) return;
+          state.stations[idx] = { ...state.stations[idx], urls };
+          persistStations();
+        };
+        rssArea.addEventListener("input", persistRss);
+        rssArea.addEventListener("blur", () => {
+          persistRss();
+          renderStationsEditor();
         });
         body.appendChild(makeField(`CUSTOM RSS · ${(station.urls || []).length}`, rssArea));
 
@@ -2172,25 +2200,28 @@
         }
         if (els.addStation) {
           els.addStation.addEventListener("click", () => {
-            state.stations = [
-              ...state.stations,
-              {
-                id: Date.now(),
-                backendId: null,
-                name: "NEW STATION",
-                tag: "custom",
-                mhz: nextFreeFrequency(),
-                hosts: 1,
-                voiceA: "F",
-                voiceB: "M",
-                tone: 25,
-                urls: [],
-                sourcePresetIds: state.sourcePresets.map((p) => p.id),
-                tracks: ["custom"],
-              },
-            ];
+            const mhz = nextFreeFrequency();
+            const newStation = {
+              id: Date.now(),
+              backendId: null,
+              name: "NEW STATION",
+              tag: "custom",
+              mhz,
+              hosts: 1,
+              voiceA: "F",
+              voiceB: "M",
+              tone: 25,
+              urls: [],
+              sourcePresetIds: state.sourcePresets.map((p) => p.id),
+              tracks: ["custom"],
+            };
+            state.stations = [...state.stations, newStation];
             persistStations();
             renderStationsEditor();
+            const newIdx = state.stations.length - 1;
+            const newDetails = els.stationsEditor?.children[newIdx];
+            if (newDetails) newDetails.open = true;
+            setFrequency(mhz);
             render();
           });
         }
