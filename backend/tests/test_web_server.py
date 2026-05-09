@@ -30,7 +30,7 @@ class WebServerTests(unittest.TestCase):
 
             try:
                 index = _get_text(f"{base_url}/")
-                self.assertIn("Console-7", index)
+                self.assertIn("VibeFM", index)
                 api_info = _get_json(f"{base_url}/api")
                 self.assertEqual(api_info["status"], "ok")
                 self.assertEqual(api_info["ui"], "/")

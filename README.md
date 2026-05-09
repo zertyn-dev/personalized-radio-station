@@ -23,7 +23,7 @@ isolated separately in `backend/src/personalized_radio_station/tts.py`.
 
 ```text
 backend/   Python package, tests, config templates, lockfile, generated episodes
-frontend/  Console-7 static prototype, styles, scripts, and fonts
+frontend/  VibeFM static prototype, styles, scripts, and fonts
 ```
 
 ## Setup
@@ -113,7 +113,7 @@ pnpm install
 pnpm dev:frontend
 ```
 
-Then open the Console-7 frontend:
+Then open the VibeFM frontend:
 
 ```text
 http://127.0.0.1:5173
@@ -321,11 +321,11 @@ OpenRouter, OpenAI, Anthropic, or Ollama.
 
 The current app is a local API and file-based test frontend. It is not hardened
 as an internet-facing service.
-# Handoff: Console-7 Personal AI Radio
+# Handoff: VibeFM Personal AI Radio
 
 ## Overview
 
-Console-7 is a tabletop radio for personal AI broadcast streams. The user "tunes" between **Vibes** (saved AI-generated stations) by turning a frequency knob; each Vibe is configured from RSS feeds, hosts/voices, and a casual↔professional tone. A timer knob sets a sleep duration, the POWER button starts the broadcast, and a recessed SETTINGS panel hinges open from above the grille for full station management.
+VibeFM is a tabletop radio for personal AI broadcast streams. The user "tunes" between **Vibes** (saved AI-generated stations) by turning a frequency knob; each Vibe is configured from RSS feeds, hosts/voices, and a casual↔professional tone. A timer knob sets a sleep duration, the POWER button starts the broadcast, and a recessed SETTINGS panel hinges open from above the grille for full station management.
 
 The aesthetic is deliberately tactile — cream chassis, brass knobs, perforated grille, amber CRT-style display, subtle film-grain noise — meant to evoke a 70s-era home stereo component repurposed as an AI surface.
 
@@ -349,7 +349,7 @@ Treat the HTML as the **source of truth for visuals and interactions** — extra
 
 ```
 frontend/
-├── Console-7 Radio.html            ← static HTML entry
+├── index.html                      ← static HTML entry
 ├── src/tailwind.css                ← Tailwind v4 CSS entry
 ├── vite.config.js                  ← frontend dev server + /api proxy
 ├── radio.jsx                       ← legacy React prototype, no longer loaded
@@ -669,7 +669,7 @@ Analyzer interval: 80ms. Each tick generates a new bell-curve-weighted random le
 ## Implementation notes for porting
 
 1. **Knob component:** the trickiest piece. Test drag, scroll, and keyboard (arrow keys) interactions; consider extracting into a reusable `<RotaryKnob>`. Use `Pointer Events`, not separate mouse/touch.
-2. **Analyzer:** the current analyzer loop is inline in `Console-7 Radio.html`; keep the bell-curve weighting toward center columns or it looks uniformly noisy. Animation should use `requestAnimationFrame`.
+2. **Analyzer:** the current analyzer loop is inline in `index.html`; keep the bell-curve weighting toward center columns or it looks uniformly noisy. Animation should use `requestAnimationFrame`.
 3. **Grille hinge:** requires `perspective` on a parent and `transform-origin: top` on the grille. The settings panel must already be rendered behind the grille, not appear after — otherwise the reveal doesn't work.
 4. **Display analyzer:** sits at `z-index: 0` inside `.display`; readout rows are `z-index: 2`; scanline overlay (`::before`) is `z-index: 3`. Keep this stack.
 5. **Responsive scaling:** the chassis is fixed at 920px. The `--device-scale` variable on `:root` is a CSS-only zoom; consider real responsive layout for production (collapse to a single-column at small viewports).

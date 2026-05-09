@@ -2,7 +2,6 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
-const consoleEntry = fileURLToPath(new URL("./Console-7 Radio.html", import.meta.url));
 const rootEntry = fileURLToPath(new URL("./index.html", import.meta.url));
 
 export default defineConfig({
@@ -29,7 +28,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: rootEntry,
-        console: consoleEntry,
       },
     },
   },

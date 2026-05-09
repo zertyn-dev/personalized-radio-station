@@ -76,7 +76,9 @@ tts:
         self.assertIn("every news claim must be supported by the provided news", prompt)
         self.assertIn("do not add new topics, examples, local businesses", prompt)
 
-    def test_generate_script_revises_once_when_word_count_is_outside_range(self) -> None:
+    def test_generate_script_revises_once_when_word_count_is_outside_range(
+        self,
+    ) -> None:
         config = _config(
             """
 station_name: "Test Station"
@@ -110,7 +112,7 @@ tts:
         ]
         calls = []
 
-        def fake_generate_text(messages, ai_config):
+        def fake_generate_text(messages, ai_config, api_keys=None):
             calls.append(messages)
             return responses.pop(0)
 

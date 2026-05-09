@@ -38,7 +38,7 @@ TERMINAL_STATUSES = {"complete", "failed"}
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 PROJECT_ROOT = BACKEND_ROOT.parent
 FRONTEND_ROOT = PROJECT_ROOT / "frontend"
-FRONTEND_ENTRY = "Console-7 Radio.html"
+FRONTEND_ENTRY = "index.html"
 FRONTEND_FILES = {
     FRONTEND_ENTRY,
     "colors_and_type.css",
