@@ -1,0 +1,1679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>CONSOLE-7 — Personal Broadcast Unit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  /* Panel materials — warm beige metal */
+  --cream:        #d9c7a3;
+  --cream-light:  #e8d8b6;
+  --cream-edge:   #efe2c4;
+  --cream-deep:   #b39d76;
+  --cream-shadow: #6f5f43;
+  --plate:        #ebdcb8;
+  --plate-deep:   #c2b08a;
+  --recess:       #8a7c5e;
+  --recess-deep:  #6b5d3f;
+
+  /* CRT — amber phosphor */
+  --crt-bg:       #1c0e04;
+  --crt-bg-2:     #2b1808;
+  --crt-amber:    #ffb347;
+  --crt-amber-hi: #ffd58a;
+  --crt-amber-dim:#a25e16;
+
+  /* Metal + accents */
+  --metal:        #b9a983;
+  --metal-dark:   #877856;
+  --rust:         #c5481e;
+  --rust-deep:    #8d2f10;
+  --screw:        #2c2418;
+  --ink:          #221a10;
+  --label-ink:    #2a2110;
+  --label-mid:    #6b5c3f;
+
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 50% 30%, #2a1f14 0%, #14100a 70%),
+    #0c0906;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Page film grain — fixed full bleed, multiply blend */
+.grain {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Stage — fixed system dimensions (speakers + console), scaled to viewport via JS */
+.stage {
+  width: 1664px;
+  height: 760px;
+  transform-origin: center center;
+}
+.system {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 180px 1fr 180px;
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* ───── Speaker cabinets ───── */
+.speaker {
+  position: relative;
+  height: 100%;
+  border-radius: 12px;
+  padding: 22px 18px;
+  background:
+    /* darker grain streaks */
+    repeating-linear-gradient(
+      90deg,
+      rgba(20,10,2,0.18) 0 1px,
+      transparent 1px 7px,
+      rgba(20,10,2,0.10) 7px 8px,
+      transparent 8px 14px
+    ),
+    /* warm wood gradient */
+    linear-gradient(180deg, #7a4f29 0%, #5a3618 35%, #3f2410 70%, #2b180a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,200,140,0.30),
+    inset 0 -2px 0 rgba(0,0,0,0.5),
+    inset 0 0 0 1px rgba(0,0,0,0.45),
+    0 30px 60px -10px rgba(0,0,0,0.7),
+    0 60px 120px -30px rgba(0,0,0,0.8);
+}
+.speaker .screw.tl { top: 10px; left: 10px; }
+.speaker .screw.tr { top: 10px; right: 10px; }
+.speaker .screw.bl { bottom: 10px; left: 10px; }
+.speaker .screw.br { bottom: 10px; right: 10px; }
+
+.grille {
+  position: absolute;
+  inset: 26px 22px 24px;
+  border-radius: 6px;
+  background:
+    /* woven cross-hatch */
+    repeating-linear-gradient(
+      45deg,
+      rgba(0,0,0,0.55) 0 1px,
+      rgba(255,200,140,0.04) 1px 3px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(0,0,0,0.55) 0 1px,
+      rgba(255,200,140,0.04) 1px 3px
+    ),
+    /* warm vignette */
+    radial-gradient(ellipse at 50% 30%, #4a3217 0%, #28180a 70%, #150b04 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.7),
+    inset 0 4px 10px rgba(0,0,0,0.65),
+    inset 0 -4px 12px rgba(0,0,0,0.55);
+}
+.grille::before {
+  /* soft top sheen suggesting backlit cloth */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,170,90,0.10), transparent 55%);
+}
+.grille::after {
+  /* SVG-noise weave grain on top, multiplied for depth */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.03 0 0 0 0 0.01 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.badge {
+  position: absolute;
+  left: 50%;
+  bottom: 50px;
+  transform: translateX(-50%);
+  width: 130px;
+  padding: 10px 12px 9px;
+  border-radius: 3px;
+  text-align: center;
+  background:
+    linear-gradient(180deg, #f0d28a 0%, #c99a3e 35%, #8a6418 60%, #5a3f0c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,240,180,0.6),
+    inset 0 -1px 0 rgba(40,20,4,0.6),
+    inset 0 0 0 1px rgba(60,35,8,0.55),
+    0 2px 4px rgba(0,0,0,0.5);
+}
+.badge::before, .badge::after {
+  /* tiny mounting rivets */
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #6c5c44, #1d160c);
+  transform: translateY(-50%);
+}
+.badge::before { left: 4px; }
+.badge::after  { right: 4px; }
+.badge-name {
+  font-size: 13px;
+  letter-spacing: 0.30em;
+  font-weight: 700;
+  color: #2a1a08;
+  text-shadow: 0 1px 0 rgba(255,230,170,0.4);
+}
+.badge-sub {
+  font-size: 8px;
+  letter-spacing: 0.32em;
+  font-weight: 600;
+  color: #2a1a08;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.badge-sub .dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #2a1a08;
+  display: inline-block;
+}
+
+/* Device — outer warm metal shell */
+.device {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 14px;
+  padding: 22px 26px 26px;
+  background: linear-gradient(180deg, #e3d2ad, #d6c39a 35%, #cbb78b 65%, #b9a374);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -2px 0 rgba(60,40,15,0.35),
+    inset 0 0 0 1px rgba(60,40,15,0.18),
+    0 30px 60px -10px rgba(0,0,0,0.7),
+    0 60px 120px -30px rgba(0,0,0,0.8);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 14px;
+}
+
+/* Corner screws */
+.screw {
+  position: absolute;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #6c5c44 0%, #3a2f20 45%, #1d160c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(0,0,0,0.6),
+    0 1px 0 rgba(255,255,255,0.4);
+}
+.screw::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 1px;
+  background: linear-gradient(45deg, transparent 44%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.55) 55%, transparent 56%);
+}
+.screw.tl { top: 12px; left: 14px; }
+.screw.tr { top: 12px; right: 14px; }
+.screw.bl { bottom: 14px; left: 14px; }
+.screw.br { bottom: 14px; right: 14px; }
+
+/* ───── Header strip ───── */
+.header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+  padding: 8px 18px;
+  border-top: 1px solid rgba(60,40,15,0.20);
+  border-bottom: 1px solid rgba(60,40,15,0.20);
+}
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  color: var(--label-ink);
+  letter-spacing: 0.22em;
+  font-size: 13px;
+  font-weight: 700;
+}
+.brand-mark {
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  color: var(--rust);
+  font-size: 14px;
+}
+.brand-sub {
+  color: var(--label-mid);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.30em;
+  margin-left: 4px;
+}
+.led-row {
+  display: flex; align-items: center; gap: 14px;
+}
+.led-cell {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 9px; letter-spacing: 0.28em; color: var(--label-mid);
+  font-weight: 600;
+}
+.led {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #5c5340;
+  box-shadow:
+    inset 0 1px 1px rgba(0,0,0,0.6),
+    inset 0 -1px 1px rgba(255,255,255,0.1);
+  transition: background 120ms ease-out, box-shadow 120ms ease-out;
+}
+.led.green-on  { background: #6ddc7a; box-shadow: inset 0 0 4px #1a4a20, 0 0 8px rgba(109,220,122,0.7); }
+.led.amber-on  { background: var(--crt-amber); box-shadow: inset 0 0 4px #5a2e08, 0 0 8px rgba(255,179,71,0.65); }
+.led.rust-on   { background: var(--rust); box-shadow: inset 0 0 4px #3a1605, 0 0 8px rgba(197,72,30,0.7); }
+.clock {
+  justify-self: end;
+  color: var(--label-ink);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+}
+
+/* ───── Main row: CRT + EQ ───── */
+.main-row {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 18px;
+  min-height: 0;
+}
+
+/* Recessed well treatment */
+.well {
+  background: linear-gradient(180deg, var(--cream-deep), var(--recess));
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.45),
+    inset 0 -1px 0 rgba(255,255,255,0.25);
+  border-radius: 10px;
+  padding: 10px;
+}
+.plate {
+  background: linear-gradient(180deg, var(--cream-light), var(--cream));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 1px rgba(60,40,15,0.18),
+    inset 0 0 0 1px rgba(60,40,15,0.18);
+  border-radius: 10px;
+}
+
+/* CRT */
+.crt-frame { padding: 14px; }
+.crt {
+  position: relative;
+  border-radius: 10px;
+  height: 100%;
+  min-height: 230px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 40%, #3b1d08 0%, #1a0c03 70%, #0a0502 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.6),
+    inset 0 4px 8px rgba(0,0,0,0.7),
+    inset 0 -4px 8px rgba(0,0,0,0.6),
+    inset 0 0 60px rgba(255,140,40,0.08);
+  color: var(--crt-amber);
+  font-family: var(--font-mono);
+  padding: 22px 26px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+}
+.crt::before {
+  /* top curvature highlight */
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% -20%, rgba(255,200,120,0.14), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgba(0,0,0,0.45), transparent 60%);
+}
+.crt::after {
+  /* scanlines */
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.28) 0px,
+    rgba(0,0,0,0.28) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.85;
+}
+.crt-static {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1   0 0 0 0 0.7   0 0 0 0 0.3   0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: screen;
+  transition: opacity 200ms ease-out;
+  animation: jitter 0.18s steps(6) infinite;
+}
+@keyframes jitter {
+  0%   { background-position: 0 0; }
+  20%  { background-position: -40px 14px; }
+  40%  { background-position: 22px -28px; }
+  60%  { background-position: -16px 32px; }
+  80%  { background-position: 36px 6px; }
+  100% { background-position: 0 0; }
+}
+.crt[data-locked="false"] .crt-static { opacity: 0.55; }
+
+.crt-eyebrow {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; letter-spacing: 0.30em;
+  color: var(--crt-amber-dim);
+  position: relative; z-index: 1;
+}
+.crt-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(162,94,22,0.7);
+  padding: 3px 7px;
+  font-size: 9px;
+  letter-spacing: 0.30em;
+  border-radius: 2px;
+}
+.crt-badge .dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--crt-amber);
+  box-shadow: 0 0 6px var(--crt-amber);
+}
+.crt-body {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  text-shadow:
+    0 0 6px rgba(255,179,71,0.75),
+    0 0 14px rgba(255,140,40,0.45);
+}
+.crt-freq {
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  color: var(--crt-amber-hi);
+  line-height: 1;
+  display: flex; align-items: baseline; gap: 12px;
+}
+.crt-freq .unit {
+  font-size: 14px;
+  letter-spacing: 0.30em;
+  color: var(--crt-amber);
+  font-weight: 500;
+}
+.crt-station {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--crt-amber-hi);
+  text-transform: uppercase;
+}
+.crt-desc {
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  font-style: italic;
+  color: var(--crt-amber);
+  line-height: 1.5;
+  max-width: 60ch;
+}
+.crt-tuning-banner {
+  position: absolute;
+  z-index: 3;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  letter-spacing: 0.45em;
+  color: var(--crt-amber-hi);
+  text-shadow: 0 0 8px rgba(255,179,71,0.8);
+  background: rgba(28,14,4,0.6);
+  padding: 6px 18px;
+  border: 1px solid rgba(255,179,71,0.3);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+.crt[data-locked="false"] .crt-tuning-banner { opacity: 1; }
+
+.crt-foot {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+  font-size: 9px;
+  letter-spacing: 0.30em;
+  color: var(--crt-amber-dim);
+}
+.crt-foot .v {
+  display: block;
+  color: var(--crt-amber);
+  margin-top: 2px;
+  font-style: normal;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+}
+.crt-now {
+  font-style: italic;
+  letter-spacing: 0.03em;
+  color: var(--crt-amber);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+/* EQ panel */
+.eq-frame { padding: 12px; display: flex; flex-direction: column; }
+.eq-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 9px; letter-spacing: 0.30em;
+  color: var(--crt-amber-dim);
+  padding: 4px 8px 8px;
+}
+.eq-well {
+  flex: 1;
+  background:
+    radial-gradient(ellipse at 50% 30%, #2c1808 0%, #150a02 75%, #090501 100%);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 0 0 1px rgba(0,0,0,0.7),
+    inset 0 4px 8px rgba(0,0,0,0.7);
+  padding: 12px 10px;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  position: relative;
+}
+.eq-well::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0.25) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+  border-radius: 6px;
+}
+.eq-bar {
+  display: grid;
+  grid-template-rows: repeat(14, 1fr);
+  gap: 2px;
+  height: 100%;
+}
+.eq-cell {
+  border-radius: 1px;
+  background: rgba(60,30,8,0.7);
+  transition: background 90ms ease-out, box-shadow 90ms ease-out;
+}
+.eq-cell.lit-amber {
+  background: var(--crt-amber);
+  box-shadow: 0 0 4px rgba(255,179,71,0.6);
+}
+.eq-cell.lit-yellow {
+  background: #ffe18a;
+  box-shadow: 0 0 5px rgba(255,225,138,0.7);
+}
+.eq-cell.lit-rust {
+  background: var(--rust);
+  box-shadow: 0 0 5px rgba(197,72,30,0.75);
+}
+
+/* ───── Source strip (simplified — 4 prominent stations) ───── */
+.freq-strip {
+  position: relative;
+  height: 110px;
+  padding: 14px 28px 16px;
+}
+.freq-axis {
+  position: relative;
+  height: 32px;
+  margin-top: 4px;
+}
+.freq-axis::before {
+  /* baseline rule */
+  content: "";
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: rgba(60,40,15,0.45);
+}
+.freq-tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  background: rgba(60,40,15,0.55);
+}
+.freq-tick.major { width: 2px; height: 18px; background: var(--label-ink); }
+.freq-tick.minor { height: 9px; opacity: 0.55; }
+.freq-num {
+  position: absolute;
+  top: -16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  color: var(--label-ink);
+  transform: translateX(-50%);
+}
+.freq-stations {
+  position: relative;
+  height: 28px;
+  margin-top: 10px;
+}
+.freq-station {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  color: var(--rust-deep);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  transition: color 100ms ease-out, background 100ms ease-out;
+}
+.freq-station::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--rust);
+  box-shadow: 0 0 6px rgba(197,72,30,0.6);
+}
+.freq-station:hover { color: var(--rust); background: rgba(197,72,30,0.08); }
+.freq-station[data-active="true"] {
+  color: var(--rust);
+  background: rgba(197,72,30,0.12);
+}
+
+.freq-pointer {
+  position: absolute;
+  top: 4px;
+  width: 14px; height: 64px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: left 100ms ease-out;
+  z-index: 2;
+}
+.freq-pointer::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 11px solid var(--rust);
+  filter: drop-shadow(0 0 4px rgba(197,72,30,0.85));
+}
+.freq-pointer::after {
+  content: "";
+  position: absolute;
+  top: 9px; left: 50%;
+  transform: translateX(-50%);
+  width: 2px; height: 54px;
+  background: var(--rust);
+  box-shadow: 0 0 6px rgba(197,72,30,0.6);
+}
+
+/* ───── Controls row ───── */
+.controls-row {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 18px;
+  align-items: stretch;
+}
+.cluster {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cluster-label {
+  font-size: 9px;
+  letter-spacing: 0.30em;
+  color: var(--label-mid);
+  font-weight: 600;
+  display: flex; justify-content: space-between;
+}
+
+/* Center cluster: dial */
+.dial-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 18px;
+  position: relative;
+}
+.dial-wrap {
+  width: 230px;
+  height: 230px;
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+}
+.dial-wrap.dragging { cursor: grabbing; }
+.dial-svg { width: 100%; height: 100%; display: block; }
+.dial-readout {
+  font-size: 11px;
+  letter-spacing: 0.30em;
+  color: var(--label-ink);
+  font-weight: 600;
+  margin-top: 8px;
+  display: flex; gap: 14px;
+}
+.dial-readout .v { color: var(--rust-deep); }
+
+/* Right cluster: volume + play */
+.right-cluster {
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+.knob-wrap {
+  width: 130px; height: 130px;
+  cursor: ns-resize;
+  touch-action: none;
+  position: relative;
+}
+.knob-svg { width: 100%; height: 100%; display: block; }
+.play-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.skip-btn {
+  background: linear-gradient(180deg, var(--cream-edge), var(--cream));
+  border: none;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.20em;
+  color: var(--label-ink);
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -1px 1px rgba(60,40,15,0.2),
+    inset 0 0 0 1px rgba(60,40,15,0.18);
+}
+.skip-btn:hover { color: var(--rust); }
+.skip-btn:active { transform: translateY(1px); }
+
+.play-btn {
+  width: 92px; height: 92px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 32%, #f0d399 0%, #b07b3a 55%, #6e4710 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 1px rgba(0,0,0,0.4),
+    inset 0 0 0 1px rgba(0,0,0,0.4),
+    0 4px 0 rgba(60,40,15,0.5),
+    0 8px 14px rgba(0,0,0,0.35);
+  transition: transform 80ms ease-out, box-shadow 80ms ease-out, background 120ms ease-out;
+}
+.play-btn[data-on="true"] {
+  background: radial-gradient(circle at 35% 32%, #ffd58a 0%, #c5481e 55%, #6b1d05 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.35),
+    inset 0 -2px 1px rgba(0,0,0,0.4),
+    inset 0 0 0 1px rgba(0,0,0,0.45),
+    0 4px 0 rgba(60,20,8,0.55),
+    0 0 30px rgba(197,72,30,0.55),
+    0 8px 14px rgba(0,0,0,0.35);
+}
+.play-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.3),
+    inset 0 -1px 1px rgba(0,0,0,0.45),
+    inset 0 0 0 1px rgba(0,0,0,0.4),
+    0 2px 0 rgba(60,40,15,0.5),
+    0 4px 8px rgba(0,0,0,0.35);
+}
+.play-glyph {
+  width: 28px; height: 28px;
+  fill: #2a1a08;
+  filter: drop-shadow(0 1px 0 rgba(255,255,255,0.18));
+}
+
+/* ───── Footer ───── */
+.footer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 4px 18px 0;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--label-mid);
+}
+.footer .meta {
+  display: flex; gap: 22px; justify-content: center;
+}
+.footer .meta b {
+  color: var(--label-ink);
+  font-weight: 600;
+  margin-left: 6px;
+}
+.footer .product {
+  color: var(--label-ink);
+  font-weight: 600;
+  letter-spacing: 0.30em;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .grain { display: none; }
+  .crt-static { animation: none; }
+  *, *::before, *::after { transition: none !important; }
+}
+</style>
+</head>
+
+<body>
+<div class="grain"></div>
+
+<div class="stage" id="stage">
+ <div class="system">
+
+  <!-- LEFT SPEAKER -->
+  <div class="speaker">
+    <div class="screw tl"></div>
+    <div class="screw tr"></div>
+    <div class="screw bl"></div>
+    <div class="screw br"></div>
+    <div class="grille"></div>
+    <div class="badge">
+      <div class="badge-name">CONSOLE-7</div>
+      <div class="badge-sub"><span class="dot"></span>L · STEREO</div>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="screw tl"></div>
+    <div class="screw tr"></div>
+    <div class="screw bl"></div>
+    <div class="screw br"></div>
+
+    <!-- HEADER -->
+    <div class="header">
+      <div class="brand">
+        CONSOLE-7
+        <span class="brand-sub">PERSONAL BROADCAST UNIT</span>
+      </div>
+      <div class="led-row">
+        <div class="led-cell"><span class="led green-on" id="led-pwr"></span>PWR</div>
+        <div class="led-cell"><span class="led" id="led-sig"></span>SIG</div>
+        <div class="led-cell"><span class="led" id="led-ai"></span>AI</div>
+        <div class="led-cell"><span class="led" id="led-mon"></span>MON</div>
+        <div class="led-cell"><span class="led" id="led-rec"></span>REC</div>
+      </div>
+      <div class="clock" id="clock">00:00:00</div>
+    </div>
+
+    <!-- MAIN ROW -->
+    <div class="main-row">
+      <!-- CRT -->
+      <div class="well crt-frame">
+        <div class="crt" id="crt" data-locked="true">
+          <div class="crt-static"></div>
+          <div class="crt-tuning-banner">▸ TUNING ▸</div>
+
+          <div class="crt-eyebrow">
+            <span>BROADCAST&nbsp;&nbsp;·&nbsp;&nbsp;NORTHERN HEMISPHERE</span>
+            <span class="crt-badge"><span class="dot"></span>FM · STEREO</span>
+          </div>
+
+          <div class="crt-body">
+            <div class="crt-freq">
+              <span id="crt-freq">91.40</span>
+              <span class="unit">MHZ</span>
+            </div>
+            <div class="crt-station" id="crt-station">LOFI MEMORY</div>
+            <div class="crt-desc" id="crt-desc">AI dreams of summer warmth, half-remembered melodies, a porch fan.</div>
+            <div class="crt-now" id="crt-now">▸ NOW PLAYING — Camcorder Sun</div>
+          </div>
+
+          <div class="crt-foot">
+            <div>BITRATE<span class="v">192 KBPS</span></div>
+            <div>MODEL<span class="v">AURA-3</span></div>
+            <div>UPLINK<span class="v">STABLE · 12 MS</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EQ -->
+      <div class="well eq-frame">
+        <div class="eq-head">
+          <span>SPECTRUM · 12 BAND</span>
+          <span>AVG · 0 DB</span>
+        </div>
+        <div class="eq-well" id="eq"></div>
+      </div>
+    </div>
+
+    <!-- SOURCE STRIP -->
+    <div class="plate freq-strip" id="freq-strip">
+      <div class="freq-axis" id="freq-axis"></div>
+      <div class="freq-stations" id="freq-stations"></div>
+      <div class="freq-pointer" id="freq-pointer" style="left: 12%"></div>
+    </div>
+
+    <!-- CONTROLS ROW -->
+    <div class="controls-row">
+      <!-- DIAL -->
+      <div class="plate dial-cluster">
+        <div class="cluster-label" style="width: 100%;"><span>TUNING · 87.5 — 108 MHZ</span><span>FM</span></div>
+        <div class="dial-wrap" id="dial-wrap">
+          <svg class="dial-svg" id="dial-svg" viewBox="0 0 230 230"></svg>
+        </div>
+        <div class="dial-readout"><span id="readout-freq" class="v">91.40 MHZ</span><span>·</span><span id="readout-station">LOFI MEMORY</span></div>
+      </div>
+
+      <!-- VOLUME + PLAY -->
+      <div class="plate cluster right-cluster">
+        <div class="knob-wrap" id="knob-wrap">
+          <svg class="knob-svg" id="knob-svg" viewBox="0 0 130 130"></svg>
+        </div>
+        <div class="play-row">
+          <button class="skip-btn" id="prev-btn">◂◂ PREV</button>
+          <button class="play-btn" id="play-btn" data-on="false" aria-label="play">
+            <svg class="play-glyph" id="play-glyph" viewBox="0 0 24 24"><path d="M7 5 L19 12 L7 19 Z"/></svg>
+          </button>
+          <button class="skip-btn" id="next-btn">NEXT ▸▸</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <span>SN-7042 · MK II</span>
+      <div class="meta">
+        <span>MODE<b>CURATED</b></span>
+        <span>SOURCE<b>AURA-3</b></span>
+        <span>FEED<b>X · PODCASTS · NEWS</b></span>
+        <span>SOURCES<b>4</b></span>
+      </div>
+      <span class="product">CONSOLE-7 · 1968 / 2026</span>
+    </div>
+  </div>
+
+  <!-- RIGHT SPEAKER -->
+  <div class="speaker">
+    <div class="screw tl"></div>
+    <div class="screw tr"></div>
+    <div class="screw bl"></div>
+    <div class="screw br"></div>
+    <div class="grille"></div>
+    <div class="badge">
+      <div class="badge-name">CONSOLE-7</div>
+      <div class="badge-sub"><span class="dot"></span>R · STEREO</div>
+    </div>
+  </div>
+
+ </div>
+</div>
+
+<script>
+/* ───── Sources (4 channels — AI, Web3, Breaking News, Weather) ───── */
+const STATIONS = [
+  { freq: 90,  name: "AI",            desc: "Signals from the language models. New papers, new capabilities, new strange.",
+    tracks: ["GPT-7 release notes", "Anthropic safety memo", "Open-source breakthrough", "DeepMind paper drop", "OpenAI dev day"] },
+  { freq: 95,  name: "WEB3",          desc: "Chains, protocols, and the long tail of decentralized news.",
+    tracks: ["BTC at new high", "Ethereum upgrade live", "L2 fee analysis", "DAO governance vote", "Stablecoin regulation"] },
+  { freq: 100, name: "BREAKING NEWS", desc: "Right now, around the world. The headlines that just landed.",
+    tracks: ["Reuters wire — capitol", "Live update — Brussels", "Markets close green", "Storm tracking East", "Election night call"] },
+  { freq: 105, name: "WEATHER",       desc: "Conditions, fronts, and what to expect by morning.",
+    tracks: ["Forecast — northeast", "Tropical depression Tariq", "Aurora alert KP-7", "Heat advisory south", "Snow watch midwest"] },
+];
+const FREQ_MIN = 87.5, FREQ_MAX = 108.0;
+const DEG_PER_MHZ = 90;
+const ROT_MAX = (FREQ_MAX - FREQ_MIN) * DEG_PER_MHZ; // 1845
+const LOCK_TOL = 0.5;
+
+/* ───── Backend wiring ───── */
+const STATION_PAYLOAD = {
+  "AI": {
+    station_name: "VibeFM · AI",
+    style: "warm, curious, late-night research lab",
+    topics: ["artificial intelligence", "machine learning", "open-source AI"],
+    weather_name: "Lisbon",
+    duration_minutes: 3,
+  },
+  "WEB3": {
+    station_name: "VibeFM · WEB3",
+    style: "energetic, market-aware, decentralized vibe",
+    topics: ["cryptocurrency", "ethereum", "web3"],
+    weather_name: "Lisbon",
+    duration_minutes: 3,
+  },
+  "BREAKING NEWS": {
+    station_name: "VibeFM · WIRE",
+    style: "calm, factual, on-the-hour",
+    topics: ["world news", "politics", "markets"],
+    weather_name: "Lisbon",
+    duration_minutes: 3,
+  },
+  "WEATHER": {
+    station_name: "VibeFM · WEATHER",
+    style: "soft, observational, atmospheric",
+    topics: ["weather", "climate"],
+    weather_name: "Lisbon",
+    duration_minutes: 2,
+  },
+};
+
+function apiBase() {
+  const param = new URLSearchParams(location.search).get("api");
+  if (param) return param.replace(/\/+$/, "");
+  if (location.protocol.startsWith("http")) return location.origin;
+  return "http://127.0.0.1:8765";
+}
+function radioMode() {
+  const param = new URLSearchParams(location.search).get("mode");
+  return param === "real" ? "real" : "mock";
+}
+
+const radio = {
+  episodeId: null,
+  eventSource: null,
+  audioContext: null,
+  gainNode: null,
+  nextStartTime: 0,
+  totalSegments: 0,
+  queuedCount: 0,
+  playedCount: 0,
+  generationComplete: false,
+  isStarting: false,
+  station: null,
+
+  get active() { return this.episodeId !== null || this.isStarting; },
+
+  async tuneIn(station) {
+    if (this.isStarting) return;
+    await this.stop();
+    const payload = STATION_PAYLOAD[station.name];
+    if (!payload) return;
+
+    this.isStarting = true;
+    this.station = station;
+    setCRT({
+      station: station.name,
+      desc: "Contacting broadcast unit…",
+      now: `◌ TUNING IN — ${station.name}`,
+    });
+
+    try {
+      const res = await fetch(`${apiBase()}/api/episodes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: radioMode(), ...payload }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const job = await res.json();
+      this.episodeId = job.episode_id;
+
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new Ctx();
+      await this.audioContext.resume();
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = state.volume;
+      this.gainNode.connect(this.audioContext.destination);
+      this.nextStartTime = this.audioContext.currentTime + 0.2;
+
+      const es = new EventSource(`${apiBase()}${job.events_url}`);
+      es.addEventListener("status", e => this._onStatus(safeParse(e.data)));
+      es.addEventListener("script_ready", e => this._onScriptReady(safeParse(e.data)));
+      es.addEventListener("segment_ready", e => this._onSegmentReady(safeParse(e.data)));
+      es.addEventListener("complete", e => this._onComplete(safeParse(e.data)));
+      es.addEventListener("failed", e => this._onFailed(safeParse(e.data)));
+      es.onerror = () => { /* browser auto-retries; SSE closes on terminal events */ };
+      this.eventSource = es;
+    } catch (err) {
+      console.error(err);
+      setCRT({ desc: `Signal lost: ${err.message || err}`, now: "◌ OFFLINE" });
+      this.station = null;
+      this.episodeId = null;
+      state.playing = false;
+      render();
+    } finally {
+      this.isStarting = false;
+    }
+  },
+
+  setVolume(v) { if (this.gainNode) this.gainNode.gain.value = v; },
+
+  async stop() {
+    if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+    if (this.audioContext) {
+      try { await this.audioContext.close(); } catch (_) {}
+      this.audioContext = null;
+      this.gainNode = null;
+    }
+    this.episodeId = null;
+    this.station = null;
+    this.totalSegments = 0;
+    this.queuedCount = 0;
+    this.playedCount = 0;
+    this.generationComplete = false;
+    this.nextStartTime = 0;
+  },
+
+  _onStatus(data) {
+    const map = {
+      queued: "Queued for broadcast",
+      checking_runtime: "Checking transmitter",
+      fetching_sources: "Pulling sources",
+      generating_script: "Writing the script",
+      rendering_audio: "Cutting the audio",
+      audio_disabled: "Audio disabled",
+    };
+    setCRT({ desc: map[data.status] || data.message || data.status });
+  },
+
+  _onScriptReady(data) {
+    this.totalSegments = Number(data.segment_count) || 0;
+    const title = (data.title || this.station?.name || "VIBEFM").toUpperCase();
+    setCRT({ station: title, desc: `${this.totalSegments} segments · script ready` });
+  },
+
+  async _onSegmentReady(segment) {
+    if (!this.audioContext || !segment || segment.audio_url == null) return;
+    try {
+      const res = await fetch(`${apiBase()}${segment.audio_url}`);
+      if (!res.ok) throw new Error(`segment fetch ${res.status}`);
+      const bytes = await res.arrayBuffer();
+      const buffer = await this.audioContext.decodeAudioData(bytes);
+      const source = this.audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.gainNode);
+
+      const startAt = Math.max(this.nextStartTime, this.audioContext.currentTime + 0.06);
+      source.start(startAt);
+      this.nextStartTime = startAt + buffer.duration + 0.04;
+      this.queuedCount += 1;
+
+      const label = (segment.title || `SEGMENT ${segment.index + 1}`).toUpperCase();
+      const announceIn = Math.max(0, (startAt - this.audioContext.currentTime) * 1000);
+      setTimeout(() => setCRT({ now: `▸ ${label}` }), announceIn);
+
+      source.onended = () => {
+        this.playedCount += 1;
+        if (this.generationComplete && this.playedCount >= this.totalSegments) this._finish();
+      };
+    } catch (err) {
+      console.error(err);
+      setCRT({ desc: `Decode failed on segment ${segment.index + 1}` });
+    }
+  },
+
+  _onComplete(_data) {
+    this.generationComplete = true;
+    if (this.eventSource) { this.eventSource.close(); this.eventSource = null; }
+    if (this.totalSegments === 0 || this.playedCount >= this.totalSegments) this._finish();
+  },
+
+  _onFailed(data) {
+    setCRT({ desc: data?.error || "Signal failed", now: "◌ OFFLINE" });
+    state.playing = false;
+    render();
+    this.stop();
+  },
+
+  _finish() {
+    setCRT({ now: "◌ END OF BROADCAST" });
+    state.playing = false;
+    render();
+    this.stop();
+  },
+};
+
+function setCRT({ station, desc, now }) {
+  if (station !== undefined) document.getElementById("crt-station").textContent = station;
+  if (desc !== undefined) document.getElementById("crt-desc").textContent = desc;
+  if (now !== undefined) document.getElementById("crt-now").textContent = now;
+}
+function safeParse(text) { try { return JSON.parse(text); } catch (_) { return {}; } }
+
+/* ───── State ───── */
+const state = {
+  rotation: (90 - FREQ_MIN) * DEG_PER_MHZ,
+  volume: 0.62,
+  playing: true,
+  trackIdx: 0,
+  lastTrackChange: 0,
+};
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const rotToFreq = (deg) => FREQ_MIN + deg / DEG_PER_MHZ;
+const nearestStation = (freq) => {
+  let best = null, dist = Infinity;
+  for (const s of STATIONS) {
+    const d = Math.abs(s.freq - freq);
+    if (d < dist) { dist = d; best = s; }
+  }
+  return dist <= LOCK_TOL ? best : null;
+};
+
+/* ───── Stage scaling ───── */
+function fitStage() {
+  const s = Math.min((window.innerWidth - 40) / 1664, (window.innerHeight - 40) / 760, 1);
+  document.getElementById('stage').style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', fitStage);
+fitStage();
+
+/* ───── Build dial SVG ───── */
+function buildDial() {
+  const svg = document.getElementById('dial-svg');
+  const cx = 115, cy = 115;
+
+  // Outer bezel (knurled)
+  let bezelTicks = '';
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2;
+    const x1 = cx + Math.cos(a) * 112, y1 = cy + Math.sin(a) * 112;
+    const x2 = cx + Math.cos(a) * 105, y2 = cy + Math.sin(a) * 105;
+    const w = i % 5 === 0 ? 1.8 : 0.6;
+    bezelTicks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a2f20" stroke-width="${w}" stroke-linecap="round"/>`;
+  }
+
+  // Rotating face — face transforms by -rotation
+  const faceR = 95;
+
+  // Multi-turn dial face (90°/MHz). Sparse ticks (1 MHz integer + 0.5 MHz
+  // half-step) so the face reads cleanly. Big rust pips + amber labels mark
+  // the 4 source positions.
+  let faceTicks = '';
+  for (let half = 0; half <= (FREQ_MAX - FREQ_MIN) * 2; half++) {
+    const f = FREQ_MIN + half / 2;
+    if (f > FREQ_MAX + 0.001) break;
+    const deg = (f - FREQ_MIN) * DEG_PER_MHZ;
+    const a = (deg - 90) * Math.PI / 180;
+    const isInt = Math.abs(f - Math.round(f)) < 0.01;
+    const r1 = faceR;
+    const r2 = isInt ? faceR - 14 : faceR - 7;
+    const w = isInt ? 1.8 : 0.9;
+    const color = isInt ? '#ffb347' : '#a8763a';
+    const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+    const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+    faceTicks += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${w}" stroke-linecap="round"/>`;
+  }
+  // Rust pips at the 4 source positions
+  let pips = '';
+  STATIONS.forEach(s => {
+    const deg = (s.freq - FREQ_MIN) * DEG_PER_MHZ;
+    const a = (deg - 90) * Math.PI / 180;
+    const px = cx + Math.cos(a) * (faceR - 20);
+    const py = cy + Math.sin(a) * (faceR - 20);
+    pips += `<circle cx="${px}" cy="${py}" r="3.6" fill="#c5481e" filter="drop-shadow(0 0 4px rgba(197,72,30,0.75))"/>`;
+  });
+  // Engraved "FM · MHZ" inside the face (purely decorative)
+  const engraveR = 56;
+  let engrave = '';
+  ['F', 'M'].forEach((c, i) => {
+    const a = ((i === 0 ? -18 : 18) - 90) * Math.PI / 180;
+    const x = cx + Math.cos(a) * engraveR;
+    const y = cy + Math.sin(a) * engraveR + 4;
+    engrave += `<text x="${x}" y="${y}" fill="#a25e16" font-family="IBM Plex Mono, monospace" font-size="9" font-weight="700" letter-spacing="2" text-anchor="middle">${c}</text>`;
+  });
+
+  svg.innerHTML = `
+    <!-- bezel ring -->
+    <defs>
+      <radialGradient id="dialFace" cx="50%" cy="40%" r="60%">
+        <stop offset="0%" stop-color="#2a2014"/>
+        <stop offset="100%" stop-color="#0c0805"/>
+      </radialGradient>
+      <radialGradient id="bezelG" cx="50%" cy="35%" r="65%">
+        <stop offset="0%" stop-color="#e8d8b6"/>
+        <stop offset="55%" stop-color="#bfa97b"/>
+        <stop offset="100%" stop-color="#7e6c46"/>
+      </radialGradient>
+      <radialGradient id="capG" cx="50%" cy="35%" r="60%">
+        <stop offset="0%" stop-color="#5b3e1a"/>
+        <stop offset="100%" stop-color="#1a0e04"/>
+      </radialGradient>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="113" fill="url(#bezelG)" />
+    <g>${bezelTicks}</g>
+    <circle cx="${cx}" cy="${cy}" r="100" fill="#1a0e04"/>
+    <circle cx="${cx}" cy="${cy}" r="98" fill="url(#dialFace)"/>
+    <g id="dial-face" style="transform-origin:${cx}px ${cy}px">
+      ${faceTicks}
+      ${pips}
+    </g>
+    ${engrave}
+    <!-- center cap -->
+    <circle cx="${cx}" cy="${cy}" r="22" fill="url(#capG)" stroke="#3a2515" stroke-width="1"/>
+    <text x="${cx}" y="${cy + 1}" fill="#a25e16" font-family="IBM Plex Mono, monospace" font-size="8" font-weight="700" letter-spacing="2" text-anchor="middle" dominant-baseline="middle">TUNE</text>
+    <!-- fixed indicator at 12 o'clock -->
+    <polygon points="${cx - 6},${cy - 100} ${cx + 6},${cy - 100} ${cx},${cy - 88}" fill="#c5481e"/>
+  `;
+}
+buildDial();
+
+/* ───── Build volume knob ───── */
+function buildKnob() {
+  const svg = document.getElementById('knob-svg');
+  const cx = 65, cy = 65;
+  // 19 ticks across 270° from -135° to +135°
+  let ticks = '';
+  for (let i = 0; i < 19; i++) {
+    const t = i / 18;
+    const deg = -135 + t * 270;
+    const a = (deg - 90) * Math.PI / 180;
+    const r1 = 60, r2 = i % 3 === 0 ? 53 : 56;
+    const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+    const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+    ticks += `<line class="knob-tick" data-i="${i}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a2f20" stroke-width="${i%3===0?1.4:0.7}" stroke-linecap="round"/>`;
+  }
+  // Knurl hairlines on cap
+  let knurl = '';
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    const x1 = cx + Math.cos(a) * 38, y1 = cy + Math.sin(a) * 38;
+    const x2 = cx + Math.cos(a) * 44, y2 = cy + Math.sin(a) * 44;
+    knurl += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#1a0e04" stroke-width="0.5" opacity="0.6"/>`;
+  }
+  svg.innerHTML = `
+    <defs>
+      <radialGradient id="knobBezel" cx="50%" cy="35%" r="70%">
+        <stop offset="0%" stop-color="#efe2c4"/>
+        <stop offset="100%" stop-color="#a89875"/>
+      </radialGradient>
+      <radialGradient id="knobCap" cx="50%" cy="35%" r="70%">
+        <stop offset="0%" stop-color="#7c552a"/>
+        <stop offset="100%" stop-color="#1a0e04"/>
+      </radialGradient>
+    </defs>
+    <circle cx="${cx}" cy="${cy}" r="62" fill="url(#knobBezel)"/>
+    <g id="knob-ticks">${ticks}</g>
+    <circle cx="${cx}" cy="${cy}" r="46" fill="url(#knobCap)" stroke="#1a0e04" stroke-width="1"/>
+    ${knurl}
+    <g id="knob-indicator" style="transform-origin:${cx}px ${cy}px">
+      <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy - 38}" stroke="#c5481e" stroke-width="2.4" stroke-linecap="round" filter="url(#kf)"/>
+      <circle cx="${cx}" cy="${cy - 38}" r="2.5" fill="#c5481e"/>
+    </g>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#c5481e" opacity="0.85"/>
+    <text x="${cx}" y="${cy + 56}" fill="#6b5c3f" font-family="IBM Plex Mono, monospace" font-size="8" font-weight="700" letter-spacing="3" text-anchor="middle">VOLUME</text>
+  `;
+}
+buildKnob();
+
+/* ───── Build EQ ───── */
+function buildEQ() {
+  const eq = document.getElementById('eq');
+  let html = '';
+  for (let b = 0; b < 12; b++) {
+    let cells = '';
+    for (let c = 0; c < 14; c++) {
+      cells += `<div class="eq-cell" data-bar="${b}" data-cell="${c}"></div>`;
+    }
+    html += `<div class="eq-bar">${cells}</div>`;
+  }
+  eq.innerHTML = html;
+}
+buildEQ();
+
+/* ───── Build source strip ───── */
+function buildFreqStrip() {
+  // Axis ticks: major at each station frequency, minor at every integer between.
+  const axis = document.getElementById('freq-axis');
+  const span = FREQ_MAX - FREQ_MIN;
+  let html = '';
+  const stationFreqs = new Set(STATIONS.map(s => s.freq));
+  for (let f = Math.ceil(FREQ_MIN); f <= Math.floor(FREQ_MAX); f++) {
+    const t = (f - FREQ_MIN) / span;
+    const left = `${(t * 100).toFixed(3)}%`;
+    if (stationFreqs.has(f)) {
+      html += `<div class="freq-tick major" style="left:${left}"></div>`;
+      html += `<div class="freq-num" style="left:${left}">${f}</div>`;
+    } else {
+      html += `<div class="freq-tick minor" style="left:${left}"></div>`;
+    }
+  }
+  axis.innerHTML = html;
+
+  // Station chips (separate row for breathing room)
+  const row = document.getElementById('freq-stations');
+  row.innerHTML = '';
+  STATIONS.forEach((s, i) => {
+    const t = (s.freq - FREQ_MIN) / span;
+    const left = `${(t * 100).toFixed(3)}%`;
+    const el = document.createElement('div');
+    el.className = 'freq-station';
+    el.style.left = left;
+    el.dataset.idx = i;
+    el.textContent = s.name;
+    el.title = `${s.freq.toFixed(1)} MHz · ${s.name}`;
+    el.addEventListener('click', () => snapToStation(i));
+    row.appendChild(el);
+  });
+}
+buildFreqStrip();
+
+/* ───── Snap helpers ───── */
+function nearestStationIndex(freq) {
+  let best = 0, dmin = Infinity;
+  STATIONS.forEach((s, i) => {
+    const d = Math.abs(s.freq - freq);
+    if (d < dmin) { dmin = d; best = i; }
+  });
+  return best;
+}
+function animateSnap() {
+  const face = document.getElementById('dial-face');
+  if (!face) return;
+  face.style.transition = 'transform 280ms cubic-bezier(.2,.8,.25,1)';
+  setTimeout(() => { face.style.transition = ''; }, 320);
+}
+function snapToStation(i) {
+  const s = STATIONS[i];
+  if (radio.active && radio.station !== s) {
+    radio.stop();
+    state.playing = false;
+  }
+  state.rotation = (s.freq - FREQ_MIN) * DEG_PER_MHZ;
+  state.trackIdx = 0;
+  state.lastTrackChange = performance.now();
+  animateSnap();
+  render();
+}
+function snapToNearest() {
+  const f = rotToFreq(state.rotation);
+  snapToStation(nearestStationIndex(f));
+}
+
+/* ───── Render ───── */
+function render() {
+  const freq = rotToFreq(state.rotation);
+  const station = nearestStation(freq);
+  const locked = !!station;
+
+  // Dial face rotation
+  const face = document.getElementById('dial-face');
+  if (face) face.style.transform = `rotate(${-state.rotation}deg)`;
+
+  // Volume indicator rotation
+  const ki = document.getElementById('knob-indicator');
+  if (ki) ki.style.transform = `rotate(${-135 + state.volume * 270}deg)`;
+  // Lit knob ticks
+  document.querySelectorAll('.knob-tick').forEach(el => {
+    const i = +el.dataset.i;
+    const litThru = Math.round(state.volume * 18);
+    if (i <= litThru) {
+      el.setAttribute('stroke', '#c5481e');
+      el.setAttribute('stroke-width', i % 3 === 0 ? '1.6' : '0.9');
+    } else {
+      el.setAttribute('stroke', '#3a2f20');
+      el.setAttribute('stroke-width', i % 3 === 0 ? '1.4' : '0.7');
+    }
+  });
+
+  // CRT
+  const crt = document.getElementById('crt');
+  crt.dataset.locked = locked ? 'true' : 'false';
+  document.getElementById('crt-freq').textContent = freq.toFixed(2);
+  if (!radio.active) {
+    if (locked) {
+      document.getElementById('crt-station').textContent = station.name;
+      document.getElementById('crt-desc').textContent = station.desc;
+      const track = station.tracks[state.trackIdx % station.tracks.length];
+      document.getElementById('crt-now').textContent = state.playing ? `▸ NOW PLAYING — ${track}` : `‖ PAUSED — ${track}`;
+    } else {
+      document.getElementById('crt-station').textContent = '— — —';
+      document.getElementById('crt-desc').textContent = 'Between stations. AI listening for signal.';
+      document.getElementById('crt-now').textContent = '◌ TUNING';
+    }
+  }
+
+  // Readout
+  document.getElementById('readout-freq').textContent = `${freq.toFixed(2)} MHZ`;
+  document.getElementById('readout-station').textContent = locked ? station.name : 'TUNING';
+
+  // Frequency strip pointer
+  const t = (freq - FREQ_MIN) / (FREQ_MAX - FREQ_MIN);
+  document.getElementById('freq-pointer').style.left = `${clamp(t * 100, 0, 100)}%`;
+
+  // Active station chip
+  document.querySelectorAll('.freq-station').forEach(el => {
+    const i = +el.dataset.idx;
+    el.dataset.active = (locked && STATIONS[i] === station) ? 'true' : 'false';
+  });
+
+  // LEDs
+  document.getElementById('led-sig').className = 'led' + (locked ? ' amber-on' : '');
+  document.getElementById('led-mon').className = 'led' + (state.playing ? ' amber-on' : '');
+  // AI LED handled by blink animation tick
+
+  // Play button
+  const pb = document.getElementById('play-btn');
+  pb.dataset.on = state.playing ? 'true' : 'false';
+  document.getElementById('play-glyph').innerHTML = state.playing
+    ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>'
+    : '<path d="M7 5 L19 12 L7 19 Z"/>';
+}
+render();
+
+/* ───── Animation loop ───── */
+let prevEQ = new Array(12).fill(0);
+let aiBlinkPhase = 0;
+
+function tick(t) {
+  const freq = rotToFreq(state.rotation);
+  const station = nearestStation(freq);
+  const locked = !!station;
+
+  // EQ
+  for (let b = 0; b < 12; b++) {
+    let target = 0;
+    if (state.playing && locked) {
+      target = clamp(
+        0.5 + Math.sin(t * 0.002 + b * 0.55) * 0.32 + Math.sin(t * 0.005 + b * 1.1) * 0.18 + (Math.random() - 0.5) * 0.22,
+        0, 1
+      ) * (0.4 + state.volume * 0.6);
+    }
+    prevEQ[b] += (target - prevEQ[b]) * 0.18;
+    const lit = Math.round(prevEQ[b] * 14);
+    const cells = document.querySelectorAll(`.eq-cell[data-bar="${b}"]`);
+    cells.forEach((el, idx) => {
+      const fromBottom = 13 - idx; // idx 0 = top of column
+      let cls = 'eq-cell';
+      if (fromBottom < lit) {
+        if (fromBottom < 8) cls += ' lit-amber';
+        else if (fromBottom < 13) cls += ' lit-yellow';
+        else cls += ' lit-rust';
+      }
+      el.className = cls;
+    });
+  }
+
+  // AI LED blink (1.6s)
+  aiBlinkPhase = (t / 1600) % 1;
+  const aiOn = state.playing && aiBlinkPhase < 0.55;
+  document.getElementById('led-ai').className = 'led' + (aiOn ? ' rust-on' : '');
+
+  // Track auto-advance every 14s when playing + locked (mock only)
+  if (!radio.active && state.playing && locked && t - state.lastTrackChange > 14000) {
+    state.trackIdx = (state.trackIdx + 1) % station.tracks.length;
+    state.lastTrackChange = t;
+    const trk = station.tracks[state.trackIdx];
+    document.getElementById('crt-now').textContent = `▸ NOW PLAYING — ${trk}`;
+  }
+
+  requestAnimationFrame(tick);
+}
+state.lastTrackChange = performance.now();
+requestAnimationFrame(tick);
+
+/* ───── Clock ───── */
+function updateClock() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('clock').textContent =
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ───── Dial drag ───── */
+(() => {
+  const wrap = document.getElementById('dial-wrap');
+  let dragging = false;
+  let lastA = 0;
+
+  function angleFromEvent(e) {
+    const r = wrap.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    return Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+  }
+
+  wrap.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    wrap.classList.add('dragging');
+    wrap.setPointerCapture(e.pointerId);
+    lastA = angleFromEvent(e);
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const a = angleFromEvent(e);
+    let delta = a - lastA;
+    if (delta > 180) delta -= 360;
+    if (delta < -180) delta += 360;
+    state.rotation = clamp(state.rotation + delta, 0, ROT_MAX);
+    lastA = a;
+    render();
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    wrap.classList.remove('dragging');
+    try { wrap.releasePointerCapture(e.pointerId); } catch (_) {}
+    snapToNearest();
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+
+  // Wheel — step one station per scroll tick (debounced).
+  let wheelLockUntil = 0;
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const now = performance.now();
+    if (now < wheelLockUntil) return;
+    wheelLockUntil = now + 180;
+    const f = rotToFreq(state.rotation);
+    let idx = nearestStationIndex(f);
+    if (e.deltaY > 0) idx = Math.min(STATIONS.length - 1, idx + 1);
+    else              idx = Math.max(0, idx - 1);
+    snapToStation(idx);
+  }, { passive: false });
+})();
+
+/* ───── Volume drag ───── */
+(() => {
+  const wrap = document.getElementById('knob-wrap');
+  let dragging = false, startY = 0, startV = 0;
+  wrap.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    wrap.setPointerCapture(e.pointerId);
+    startY = e.clientY; startV = state.volume;
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    state.volume = clamp(startV + (startY - e.clientY) / 200, 0, 1);
+    radio.setVolume(state.volume);
+    render();
+  });
+  const end = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    try { wrap.releasePointerCapture(e.pointerId); } catch(_) {}
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    state.volume = clamp(state.volume - e.deltaY * 0.001, 0, 1);
+    radio.setVolume(state.volume);
+    render();
+  }, { passive: false });
+})();
+
+/* ───── Play / skip ───── */
+document.getElementById('play-btn').addEventListener('click', () => {
+  state.playing = !state.playing;
+  state.lastTrackChange = performance.now();
+  render();
+  if (state.playing) {
+    const lockedStation = nearestStation(rotToFreq(state.rotation));
+    if (lockedStation) {
+      radio.tuneIn(lockedStation);
+    } else {
+      setCRT({ desc: "Tune to a station first." });
+    }
+  } else {
+    radio.stop();
+  }
+});
+document.getElementById('next-btn').addEventListener('click', () => {
+  radio.stop();
+  state.playing = false;
+  const idx = nearestStationIndex(rotToFreq(state.rotation));
+  snapToStation((idx + 1) % STATIONS.length);
+  render();
+});
+document.getElementById('prev-btn').addEventListener('click', () => {
+  radio.stop();
+  state.playing = false;
+  const idx = nearestStationIndex(rotToFreq(state.rotation));
+  snapToStation((idx - 1 + STATIONS.length) % STATIONS.length);
+  render();
+});
+</script>
+</body>
+</html>

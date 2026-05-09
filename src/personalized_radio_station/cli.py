@@ -37,12 +37,16 @@ def _build_parser() -> ArgumentParser:
     parser = ArgumentParser(prog="vibefm", description="VibeFM backend CLI.")
     subparsers = parser.add_subparsers(dest="command")
 
-    check = subparsers.add_parser("check", help="Validate runtime config and credentials.")
+    check = subparsers.add_parser(
+        "check", help="Validate runtime config and credentials."
+    )
     _add_common_options(check)
     check.set_defaults(handler=_handle_check)
 
     sources = subparsers.add_parser("sources", help="Fetch RSS news and weather only.")
-    sources.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML.")
+    sources.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML."
+    )
     sources.add_argument(
         "--limit-per-topic",
         type=int,
@@ -51,11 +55,15 @@ def _build_parser() -> ArgumentParser:
     )
     sources.set_defaults(handler=_handle_sources)
 
-    generate = subparsers.add_parser("generate", help="Generate an episode in the foreground.")
+    generate = subparsers.add_parser(
+        "generate", help="Generate an episode in the foreground."
+    )
     _add_common_options(generate)
     generate.set_defaults(handler=_handle_generate)
 
-    start = subparsers.add_parser("start", help="Generate an episode in a detached process.")
+    start = subparsers.add_parser(
+        "start", help="Generate an episode in a detached process."
+    )
     _add_common_options(start)
     start.add_argument(
         "--runs-dir",
@@ -77,7 +85,9 @@ def _build_parser() -> ArgumentParser:
     web = subparsers.add_parser("web", help="Run the local test API server.")
     web.add_argument("--host", default="127.0.0.1", help="Host interface to bind.")
     web.add_argument("--port", type=int, default=8765, help="Port to bind.")
-    web.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML.")
+    web.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML."
+    )
     web.add_argument("--env", type=Path, default=DEFAULT_ENV, help="Path to .env file.")
     web.add_argument(
         "--output-dir",
@@ -85,14 +95,29 @@ def _build_parser() -> ArgumentParser:
         default=DEFAULT_OUTPUT_DIR,
         help="Directory where API-generated episode artifacts are saved.",
     )
+    web.add_argument(
+        "--static-dir",
+        type=Path,
+        default=Path.cwd(),
+        help="Directory served at / (radio.html, index.html, etc.). Defaults to CWD.",
+    )
+    web.add_argument(
+        "--no-static",
+        action="store_true",
+        help="Disable static UI serving; only expose the JSON API.",
+    )
     web.set_defaults(handler=_handle_web)
 
     return parser
 
 
 def _add_common_options(parser: ArgumentParser) -> None:
-    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML.")
-    parser.add_argument("--env", type=Path, default=DEFAULT_ENV, help="Path to .env file.")
+    parser.add_argument(
+        "--config", type=Path, default=DEFAULT_CONFIG, help="Path to config YAML."
+    )
+    parser.add_argument(
+        "--env", type=Path, default=DEFAULT_ENV, help="Path to .env file."
+    )
     parser.add_argument(
         "--duration",
         help="Target duration, e.g. `18m`, `18 minutes`, `1 hour`, or `unlimited`.",
@@ -209,12 +234,14 @@ def _handle_status(args: Namespace) -> None:
 def _handle_web(args: Namespace) -> None:
     from .web_server import serve
 
+    static_dir = None if args.no_static else args.static_dir
     serve(
         host=args.host,
         port=args.port,
         output_dir=args.output_dir,
         config_path=args.config,
         env_path=args.env,
+        static_dir=static_dir,
     )
 
 

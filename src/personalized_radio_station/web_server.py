@@ -27,6 +27,15 @@ from .weather import fetch_weather
 
 TERMINAL_STATUSES = {"complete", "failed"}
 
+STATIC_FILES = {
+    "/": "radio.html",
+    "/index.html": "index.html",
+    "/radio.html": "radio.html",
+    "/landing.html": "landing.html",
+    "/vibeFM_radio.html": "vibeFM_radio.html",
+    "/radio_test.html": "radio_test.html",
+}
+
 
 @dataclass(frozen=True)
 class EpisodeEvent:
@@ -71,7 +80,9 @@ class EpisodeJob:
                 }
                 for segment in self.segments
             ],
-            "audio_url": f"/api/episodes/{self.id}/audio" if self.final_audio_path else None,
+            "audio_url": f"/api/episodes/{self.id}/audio"
+            if self.final_audio_path
+            else None,
             "events_url": f"/api/episodes/{self.id}/events",
             "error": self.error,
         }
@@ -84,11 +95,13 @@ class EpisodeService:
         config_path: Path,
         env_path: Path,
         demo_delay: float = 0.35,
+        static_dir: Path | None = None,
     ) -> None:
         self.output_dir = output_dir
         self.config_path = config_path
         self.env_path = env_path
         self.demo_delay = demo_delay
+        self.static_dir = Path(static_dir) if static_dir else None
         self._jobs: dict[str, EpisodeJob] = {}
         self._lock = threading.Lock()
 
@@ -111,7 +124,9 @@ class EpisodeService:
 
         self._emit(job, "status", {"status": "queued", "message": "Queued"})
         thread = threading.Thread(
-            target=self._generate_real_episode if mode == "real" else self._generate_mock_episode,
+            target=self._generate_real_episode
+            if mode == "real"
+            else self._generate_mock_episode,
             args=(job, payload),
             name=f"radio-episode-{episode_id}",
             daemon=True,
@@ -151,12 +166,16 @@ class EpisodeService:
                 + "\n"
             )
 
-            self._set_status(job, "generating_script", f"Generating script with {config.ai.model}")
+            self._set_status(
+                job, "generating_script", f"Generating script with {config.ai.model}"
+            )
             episode = generate_script(news_items, weather, config)
             script_words = count_episode_words(episode)
             episode["timing"] = _timing_metadata(config, script_words)
             self._prepare_public_segments(job, episode)
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._emit(
                 job,
@@ -177,30 +196,40 @@ class EpisodeService:
                     episode,
                     config,
                     job.output_dir,
-                    on_segment_ready=lambda index, segment, path: self._mark_segment_ready(
-                        job, index, segment, path
+                    on_segment_ready=lambda index, segment, path: (
+                        self._mark_segment_ready(job, index, segment, path)
                     ),
                 )
                 if tts_result.episode_file:
                     episode["audio_file"] = tts_result.episode_file.name
-                    _add_audio_timing(episode, tts_result.episode_file, script_words, config)
+                    _add_audio_timing(
+                        episode, tts_result.episode_file, script_words, config
+                    )
                     with job.condition:
                         job.final_audio_path = tts_result.episode_file
             else:
                 self._set_status(job, "audio_disabled", "TTS is disabled")
 
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._set_status(
                 job,
                 "complete",
                 "Complete",
-                extra={"audio_url": f"/api/episodes/{job.id}/audio" if job.final_audio_path else None},
+                extra={
+                    "audio_url": f"/api/episodes/{job.id}/audio"
+                    if job.final_audio_path
+                    else None
+                },
             )
         except Exception as exc:  # pragma: no cover - defensive for background thread
             with job.condition:
                 job.error = str(exc)
-            self._set_status(job, "failed", "Generation failed", extra={"error": str(exc)})
+            self._set_status(
+                job, "failed", "Generation failed", extra={"error": str(exc)}
+            )
 
     def _generate_mock_episode(self, job: EpisodeJob, payload: dict[str, Any]) -> None:
         try:
@@ -229,14 +258,20 @@ class EpisodeService:
                     for topic in topics
                 ],
             }
-            (job.output_dir / "sources.json").write_text(json.dumps(sources, indent=2) + "\n")
+            (job.output_dir / "sources.json").write_text(
+                json.dumps(sources, indent=2) + "\n"
+            )
 
             self._set_status(job, "generating_script", "Writing a test script")
             self._sleep()
 
-            episode = _build_mock_episode(station_name, style, duration, weather_name, topics)
+            episode = _build_mock_episode(
+                station_name, style, duration, weather_name, topics
+            )
             self._prepare_public_segments(job, episode)
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
             self._emit(
                 job,
@@ -263,15 +298,21 @@ class EpisodeService:
                 duration_seconds = audio_duration_seconds(segment_path)
                 segment["audio_file"] = str(segment_path.relative_to(job.output_dir))
                 segment_paths.append(segment_path)
-                self._mark_segment_ready(job, index, segment, segment_path, duration_seconds)
+                self._mark_segment_ready(
+                    job, index, segment, segment_path, duration_seconds
+                )
 
-            final_audio = concatenate_wavs(segment_paths, job.output_dir / "episode.wav")
+            final_audio = concatenate_wavs(
+                segment_paths, job.output_dir / "episode.wav"
+            )
             episode["audio_file"] = final_audio.name
             episode["timing"] = {
                 "target_duration": duration,
                 "audio_duration_seconds": audio_duration_seconds(final_audio),
             }
-            (job.output_dir / "episode.json").write_text(json.dumps(episode, indent=2) + "\n")
+            (job.output_dir / "episode.json").write_text(
+                json.dumps(episode, indent=2) + "\n"
+            )
             with job.condition:
                 job.final_audio_path = final_audio
 
@@ -284,9 +325,13 @@ class EpisodeService:
         except Exception as exc:  # pragma: no cover - defensive for background thread
             with job.condition:
                 job.error = str(exc)
-            self._set_status(job, "failed", "Generation failed", extra={"error": str(exc)})
+            self._set_status(
+                job, "failed", "Generation failed", extra={"error": str(exc)}
+            )
 
-    def _prepare_public_segments(self, job: EpisodeJob, episode: dict[str, Any]) -> None:
+    def _prepare_public_segments(
+        self, job: EpisodeJob, episode: dict[str, Any]
+    ) -> None:
         with job.condition:
             job.title = str(episode.get("title", "VibeFM"))
             job.segments = [
@@ -369,12 +414,14 @@ def create_server(
     config_path: Path | str = Path("config.yaml"),
     env_path: Path | str = Path(".env"),
     demo_delay: float = 0.35,
+    static_dir: Path | str | None = None,
 ) -> ThreadingHTTPServer:
     service = EpisodeService(
         Path(output_dir),
         config_path=Path(config_path),
         env_path=Path(env_path),
         demo_delay=demo_delay,
+        static_dir=Path(static_dir) if static_dir is not None else None,
     )
 
     class RadioRequestHandler(_RadioRequestHandler):
@@ -390,6 +437,7 @@ def serve(
     output_dir: Path | str = Path("episodes"),
     config_path: Path | str = Path("config.yaml"),
     env_path: Path | str = Path(".env"),
+    static_dir: Path | str | None = None,
 ) -> None:
     server = create_server(
         host=host,
@@ -397,10 +445,16 @@ def serve(
         output_dir=output_dir,
         config_path=config_path,
         env_path=env_path,
+        static_dir=static_dir,
     )
     address, actual_port = server.server_address
     print(f"[vibefm] API listening on http://{address}:{actual_port}", flush=True)
-    print("[vibefm] Demo mode is free; real mode uses configured model and TTS APIs.", flush=True)
+    if static_dir:
+        print(f"[vibefm] UI served from {Path(static_dir).resolve()} at /", flush=True)
+    print(
+        "[vibefm] Demo mode is free; real mode uses configured model and TTS APIs.",
+        flush=True,
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -420,12 +474,17 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
-        if path in {"/", "/index.html"}:
+
+        static_name = STATIC_FILES.get(path)
+        if static_name and self._serve_static(static_name):
+            return
+
+        if path in {"/", "/api", "/api/"}:
             self._send_json(
                 {
                     "name": "VibeFM API",
                     "status": "ok",
-                    "ui": "Open radio_test.html directly in your browser.",
+                    "ui": "Open radio.html (or radio_test.html) in your browser.",
                 }
             )
             return
@@ -434,7 +493,11 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         if len(parts) == 3 and parts[:2] == ["api", "episodes"]:
             self._send_episode_status(parts[2])
             return
-        if len(parts) == 4 and parts[:2] == ["api", "episodes"] and parts[3] == "events":
+        if (
+            len(parts) == 4
+            and parts[:2] == ["api", "episodes"]
+            and parts[3] == "events"
+        ):
             self._send_episode_events(parts[2])
             return
         if len(parts) == 4 and parts[:2] == ["api", "episodes"] and parts[3] == "audio":
@@ -496,14 +559,19 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         try:
             while True:
                 with job.condition:
-                    while cursor >= len(job.events) and job.status not in TERMINAL_STATUSES:
+                    while (
+                        cursor >= len(job.events)
+                        and job.status not in TERMINAL_STATUSES
+                    ):
                         job.condition.wait(timeout=15)
                         if cursor >= len(job.events):
                             self.wfile.write(b": keep-alive\n\n")
                             self.wfile.flush()
                     events = job.events[cursor:]
                     cursor = len(job.events)
-                    terminal = job.status in TERMINAL_STATUSES and cursor >= len(job.events)
+                    terminal = job.status in TERMINAL_STATUSES and cursor >= len(
+                        job.events
+                    )
 
                 for event in events:
                     self.wfile.write(_format_sse(event).encode("utf-8"))
@@ -514,6 +582,20 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             return
 
+    def _serve_static(self, name: str) -> bool:
+        static_dir = self.service.static_dir
+        if not static_dir:
+            return False
+        path = (static_dir / name).resolve()
+        try:
+            path.relative_to(static_dir.resolve())
+        except ValueError:
+            return False
+        if not path.is_file():
+            return False
+        self._send_file(path, content_type=_web_content_type(path))
+        return True
+
     def _send_segment_audio(self, episode_id: str, index_value: str) -> None:
         job = self.service.get_job(episode_id)
         if not job:
@@ -522,20 +604,28 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         try:
             index = int(index_value)
         except ValueError:
-            self._send_json({"error": "Invalid segment index"}, status=HTTPStatus.BAD_REQUEST)
+            self._send_json(
+                {"error": "Invalid segment index"}, status=HTTPStatus.BAD_REQUEST
+            )
             return
 
         with job.condition:
             if index < 0 or index >= len(job.segments):
-                self._send_json({"error": "Segment not found"}, status=HTTPStatus.NOT_FOUND)
+                self._send_json(
+                    {"error": "Segment not found"}, status=HTTPStatus.NOT_FOUND
+                )
                 return
             segment = job.segments[index]
             if segment.get("status") != "ready":
-                self._send_json({"error": "Segment is not ready"}, status=HTTPStatus.ACCEPTED)
+                self._send_json(
+                    {"error": "Segment is not ready"}, status=HTTPStatus.ACCEPTED
+                )
                 return
             audio_path = segment.get("audio_path")
             if not audio_path:
-                self._send_json({"error": "Segment audio is missing"}, status=HTTPStatus.NOT_FOUND)
+                self._send_json(
+                    {"error": "Segment audio is missing"}, status=HTTPStatus.NOT_FOUND
+                )
                 return
             segment_path = job.output_dir / str(audio_path)
 
@@ -551,7 +641,9 @@ class _RadioRequestHandler(BaseHTTPRequestHandler):
         if not final_audio_path:
             self._send_json({"error": "Audio is not ready"}, status=HTTPStatus.ACCEPTED)
             return
-        self._send_file(final_audio_path, content_type=_audio_content_type(final_audio_path))
+        self._send_file(
+            final_audio_path, content_type=_audio_content_type(final_audio_path)
+        )
 
     def _send_file(self, path: Path, content_type: str) -> None:
         if not path.exists():
@@ -806,7 +898,9 @@ def _dedupe_strings(values: list[str]) -> list[str]:
     return deduped
 
 
-def _duration_from_payload(payload: dict[str, Any], fallback: str | None = None) -> str | None:
+def _duration_from_payload(
+    payload: dict[str, Any], fallback: str | None = None
+) -> str | None:
     duration_minutes = payload.get("duration_minutes")
     if duration_minutes is not None and duration_minutes != "":
         minutes = int(float(duration_minutes))

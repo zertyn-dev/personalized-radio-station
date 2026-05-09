@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CONSOLE-7 — Personal Broadcast Unit · Built in Public</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A personal radio station that pulls from your X timeline, your podcasts, and the news. You tell it how long you've got. It writes a show that fits.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Geist:wght@200;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --paper:        #f0e4c4;
+  --paper-deep:   #e3d3a6;
+  --paper-edge:   #f7eed5;
+  --paper-shade:  #c9b685;
+  --ink:          #1a140a;
+  --ink-2:        #3a2c14;
+  --ink-mid:      #6b5c3f;
+  --rule:         rgba(26,20,10,0.18);
+  --rule-strong:  rgba(26,20,10,0.40);
+  --rust:         #c5481e;
+  --rust-deep:    #8d2f10;
+  --amber:        #ffb347;
+  --crt-bg:       #1a0d04;
+
+  --section-pad:  120px;
+  --container:    1280px;
+  --gutter:       28px;
+
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: "Geist", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+  text-wrap: pretty;
+}
+body { font-variant-numeric: tabular-nums; }
+
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.16;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--rust); }
+
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* ---------- LIVE BANNER ---------- */
+.live-banner {
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rust);
+}
+.live-banner .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+.live-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--rust);
+  margin-right: 10px;
+  box-shadow: 0 0 8px rgba(197,72,30,0.85);
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+.live-banner a { color: var(--rust); }
+.live-banner a:hover { color: var(--paper); }
+
+/* ---------- NAV ---------- */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(240,228,196,0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--rule);
+}
+.nav-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 32px;
+  height: 64px;
+}
+.brand-mark {
+  display: flex; align-items: baseline; gap: 10px;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.brand-mark .star { color: var(--rust); font-size: 17px; }
+.brand-mark .sub  {
+  color: var(--ink-mid); font-weight: 500;
+  font-size: 10px; letter-spacing: 0.25em;
+}
+.nav-links {
+  justify-self: center;
+  display: flex; gap: 28px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+.nav-links a:hover { color: var(--rust); }
+.nav-cta { display: flex; gap: 10px; align-items: center; }
+
+/* ---------- BUTTONS ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  transition: background 200ms, color 200ms, transform 100ms, border-color 200ms;
+}
+.btn:hover { background: transparent; color: var(--ink); }
+.btn:active { transform: translateY(1px); }
+.btn .arrow { transition: transform 200ms; display: inline-block; }
+.btn:hover .arrow { transform: rotate(45deg); }
+
+.btn.btn-rust { background: var(--rust); border-color: var(--rust); color: var(--paper); }
+.btn.btn-rust:hover { background: transparent; color: var(--rust); }
+
+.btn.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule-strong);
+}
+.btn.btn-ghost:hover { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+
+.btn.btn-sm { padding: 8px 14px; font-size: 10px; letter-spacing: 0.2em; }
+
+/* ---------- TYPE PRIMITIVES ---------- */
+.eyebrow {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+.eyebrow .num { color: var(--ink-mid); margin-right: 8px; }
+
+h1, h2, h3, h4 {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.05;
+}
+h1 { font-size: clamp(40px, 6vw, 92px); font-weight: 500; }
+h2 { font-size: clamp(28px, 3.4vw, 52px); }
+h3 { font-size: clamp(18px, 1.6vw, 22px); }
+
+p { line-height: 1.55; color: var(--ink-2); }
+.lead { font-size: 17px; line-height: 1.55; color: var(--ink-2); max-width: 56ch; }
+.caption {
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+
+/* ---------- HERO ---------- */
+.hero {
+  position: relative;
+  padding: 80px 0 100px;
+  overflow: hidden;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 56px;
+  align-items: center;
+}
+.hero h1 { margin-top: 16px; }
+.hero h1 .accent { color: var(--rust); }
+.hero .lead { margin-top: 24px; }
+.hero-meta {
+  margin-top: 28px;
+  display: flex; gap: 20px; flex-wrap: wrap;
+  font-size: 10px; letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.hero-meta b { color: var(--ink); font-weight: 600; }
+.hero-cta { margin-top: 40px; display: flex; gap: 12px; flex-wrap: wrap; }
+
+.device-frame {
+  position: relative;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at 50% 30%, #2a1f14 0%, #14100a 70%),
+    #0c0906;
+  padding: 18px;
+  box-shadow:
+    0 30px 60px -10px rgba(0,0,0,0.35),
+    0 60px 120px -30px rgba(0,0,0,0.45);
+}
+.device-iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1664 / 760;
+  border: 0;
+  border-radius: 8px;
+  background: #0c0906;
+}
+.device-meta {
+  margin-top: 10px;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.device-meta b { color: var(--ink); }
+
+/* ---------- MARQUEE ---------- */
+.marquee {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+  background: var(--paper-deep);
+  padding: 22px 0;
+  overflow: hidden;
+  position: relative;
+}
+.marquee-track {
+  display: flex; gap: 60px;
+  font-size: 18px; font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: marquee 50s linear infinite;
+  width: max-content;
+}
+.marquee-track .freq { color: var(--rust); margin-right: 14px; font-weight: 700; }
+.marquee-track .star { color: var(--rust); margin: 0 26px; font-weight: 700; }
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ---------- SECTIONS ---------- */
+section.block {
+  padding: var(--section-pad) 0;
+  border-top: 1px solid var(--rule);
+}
+.section-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  margin-bottom: 56px;
+  align-items: end;
+}
+.section-head .right .lead { margin: 0; }
+
+/* ---------- SOURCE GRID ---------- */
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--rule-strong);
+  border-left: 1px solid var(--rule-strong);
+}
+.station-card {
+  position: relative;
+  padding: 32px 28px 36px;
+  border-right: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+  display: grid; gap: 12px; align-content: start;
+  background: var(--paper);
+  transition: background 200ms;
+  min-height: 230px;
+}
+.station-card:hover { background: var(--paper-edge); }
+.station-card .freq {
+  font-size: 36px; font-weight: 500;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.station-card .freq .unit { font-size: 11px; letter-spacing: 0.25em; color: var(--ink-mid); }
+.station-card .name {
+  font-size: 18px; font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.station-card .tag {
+  font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rust);
+}
+.station-card .desc {
+  font-size: 13px; line-height: 1.55;
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+.station-card .num {
+  position: absolute; top: 18px; right: 22px;
+  font-size: 10px; letter-spacing: 0.25em;
+  color: var(--ink-mid);
+}
+.station-card.soon { background: var(--paper-deep); }
+.station-card.soon:hover { background: var(--paper-deep); }
+.station-card.soon .name { color: var(--ink-mid); }
+
+/* ---------- HOW IT WORKS ---------- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+.step {
+  padding: 36px 28px 32px;
+  border-right: 1px solid var(--rule-strong);
+  display: grid; gap: 16px; align-content: start;
+}
+.step:last-child { border-right: 0; }
+.step .num { font-size: 11px; letter-spacing: 0.25em; color: var(--rust); font-weight: 700; }
+.step h3 { font-size: 26px; }
+.step p { margin: 0; max-width: 38ch; font-size: 13px; }
+.step .icon { width: 64px; height: 64px; margin-bottom: 4px; color: var(--ink); }
+
+/* ---------- INSTRUMENT ---------- */
+.instrument {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+.instrument .panel {
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  background: var(--paper-edge);
+  transition: transform 200ms, box-shadow 200ms;
+}
+.instrument .panel:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.10);
+}
+.instrument .panel .visual {
+  height: 220px;
+  background: radial-gradient(ellipse at 50% 30%, #2a1f14, #14100a 70%);
+  display: grid; place-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.instrument .panel .body {
+  padding: 22px 24px 26px;
+  border-top: 1px solid var(--rule);
+  background: var(--paper-edge);
+}
+.instrument .panel .body .label {
+  font-size: 10px; letter-spacing: 0.3em;
+  color: var(--rust); font-weight: 700;
+}
+.instrument .panel .body h3 { margin-top: 6px; }
+.instrument .panel .body p {
+  margin: 10px 0 0;
+  font-size: 12.5px; line-height: 1.55;
+}
+
+/* CRT visual */
+.viz-crt {
+  width: 80%; height: 64%;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 40%, #3b1d08, #1a0c03 70%, #0a0502);
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 0 60px rgba(0,0,0,0.85), inset 0 0 0 1px rgba(0,0,0,0.6);
+  color: var(--amber);
+  display: grid; align-content: center;
+  padding: 22px 22px 16px;
+  text-shadow: 0 0 6px rgba(255,179,71,0.75), 0 0 14px rgba(255,140,40,0.45);
+}
+.viz-crt::before {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 2px, rgba(0,0,0,0.25) 2px, rgba(0,0,0,0.25) 3px);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+.viz-crt .num { font-size: 38px; font-weight: 500; letter-spacing: -0.04em; line-height: 1; color: #ffd58a; }
+.viz-crt .name { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; margin-top: 6px; }
+.viz-crt .meta { font-size: 9px; letter-spacing: 0.3em; color: #a25e16; margin-top: 6px; }
+
+/* Dial visual */
+.viz-dial {
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 28%, #f0d399 0%, #a87f3a 45%, #2a1c08 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.4),
+    inset 0 -3px 6px rgba(0,0,0,0.6),
+    0 6px 16px rgba(0,0,0,0.5);
+  position: relative;
+}
+.viz-dial::before {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(0,0,0,0.4) 0 1deg, transparent 1deg 6deg);
+  mask: radial-gradient(circle, transparent 65%, black 67%, black 100%);
+  -webkit-mask: radial-gradient(circle, transparent 65%, black 67%, black 100%);
+}
+.viz-dial::after {
+  content: ""; position: absolute;
+  top: -6px; left: 50%; margin-left: -6px;
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid var(--rust);
+  filter: drop-shadow(0 0 4px rgba(197,72,30,0.7));
+}
+.viz-dial .center {
+  position: absolute; inset: 30%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 30%, #f0d399, #6e4710 80%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 4px rgba(0,0,0,0.6);
+}
+
+/* EQ visual (replaces VU — matches our radio's spectrum panel) */
+.viz-eq {
+  width: 80%; height: 70%;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 30%, #2c1808 0%, #150a02 75%, #090501 100%);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.7), inset 0 4px 8px rgba(0,0,0,0.7);
+  padding: 14px 12px;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.viz-eq::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0.25) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+.viz-eq .col {
+  display: grid;
+  grid-template-rows: repeat(14, 1fr);
+  gap: 2px;
+}
+.viz-eq .cell {
+  background: rgba(60,30,8,0.7);
+  border-radius: 1px;
+}
+.viz-eq .cell.a { background: var(--amber); box-shadow: 0 0 4px rgba(255,179,71,0.6); }
+.viz-eq .cell.y { background: #ffe18a; box-shadow: 0 0 5px rgba(255,225,138,0.7); }
+.viz-eq .cell.r { background: var(--rust); box-shadow: 0 0 5px rgba(197,72,30,0.75); }
+
+/* ---------- MODEL CARD ---------- */
+.model-card {
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--paper-edge);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.model-card .left {
+  padding: 48px 48px 56px;
+  border-right: 1px solid var(--rule);
+  background: var(--paper);
+}
+.model-card .left h2 { margin-top: 14px; }
+.model-card .left p  { margin-top: 18px; font-size: 14px; max-width: 38ch; }
+.model-card .left .badge {
+  display: inline-flex; gap: 8px; align-items: center;
+  font-size: 10px; letter-spacing: 0.3em;
+  color: var(--rust); font-weight: 700;
+  border: 1px solid currentColor;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.spec-table { display: grid; align-content: start; }
+.spec-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 24px;
+  padding: 18px 32px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+}
+.spec-row:last-child { border-bottom: 0; }
+.spec-row .k {
+  font-size: 10px; letter-spacing: 0.25em; color: var(--ink-mid); font-weight: 600;
+  text-transform: uppercase;
+  align-self: center;
+}
+.spec-row .v {
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.spec-row .v b { color: var(--rust); }
+
+/* ---------- TIERS ---------- */
+.tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.tier {
+  position: relative;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  background: var(--paper);
+  padding: 32px 28px 28px;
+  display: grid; gap: 18px; align-content: start;
+  transition: border-color 200ms, transform 200ms;
+}
+.tier:hover { transform: translateY(-3px); }
+.tier.featured {
+  border-color: var(--rust);
+  background: var(--paper-edge);
+}
+.tier .badge-feat {
+  position: absolute;
+  top: -10px; left: 28px;
+  background: var(--paper-edge);
+  border: 1px solid var(--rust);
+  color: var(--rust);
+  font-size: 9px; letter-spacing: 0.3em; font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.tier .tier-num { font-size: 11px; letter-spacing: 0.3em; color: var(--rust); font-weight: 700; }
+.tier h3 { font-size: 26px; }
+.tier .tagline { font-size: 12.5px; color: var(--ink-mid); margin: 0; }
+.tier .price {
+  display: flex; align-items: baseline; gap: 6px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 0;
+}
+.tier .price .num { font-size: 38px; font-weight: 500; letter-spacing: -0.04em; }
+.tier .price .per { font-size: 11px; color: var(--ink-mid); letter-spacing: 0.2em; }
+.tier ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.tier li {
+  font-size: 12.5px;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 10px;
+  color: var(--ink-2);
+}
+.tier li::before { content: "✓"; color: var(--rust); font-weight: 700; }
+.tier .btn { width: 100%; justify-content: center; }
+
+/* ---------- FAQ ---------- */
+.faq-list { border-top: 1px solid var(--rule-strong); }
+.faq-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 1.4fr;
+  gap: 32px;
+  padding: 28px 8px;
+  border-bottom: 1px solid var(--rule-strong);
+  align-items: start;
+}
+.faq-item .num {
+  font-size: 11px; letter-spacing: 0.25em; color: var(--rust); font-weight: 700;
+}
+.faq-item .q {
+  font-size: 17px; font-weight: 600; letter-spacing: -0.02em;
+  text-transform: uppercase; line-height: 1.25;
+}
+.faq-item .a {
+  font-size: 13.5px; line-height: 1.6; color: var(--ink-2); margin: 0;
+}
+
+/* ---------- CTA STRIP ---------- */
+.cta-strip {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 80px 0;
+  position: relative;
+  overflow: hidden;
+}
+.cta-strip h2 { color: var(--paper); }
+.cta-strip p  { color: rgba(240,228,196,0.75); }
+.cta-strip .grid {
+  display: grid;
+  grid-template-columns: 1.4fr auto;
+  gap: 40px; align-items: end;
+}
+.cta-strip .btn { background: var(--rust); border-color: var(--rust); color: var(--paper); }
+.cta-strip .btn:hover { background: transparent; color: var(--paper); }
+.cta-strip .btn.btn-ghost {
+  background: transparent; color: var(--paper);
+  border-color: rgba(240,228,196,0.4);
+}
+.cta-strip .btn.btn-ghost:hover { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.cta-strip .star {
+  position: absolute;
+  font-size: 280px;
+  color: var(--rust);
+  opacity: 0.10;
+  right: -40px; top: -40px;
+  pointer-events: none;
+  font-weight: 400;
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+
+/* ---------- FOOTER ---------- */
+.footer {
+  background: var(--paper-deep);
+  border-top: 1px solid var(--rule-strong);
+  padding: 56px 0 32px;
+  font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.footer-top {
+  display: grid;
+  grid-template-columns: 2fr repeat(3, 1fr);
+  gap: 40px;
+  padding-bottom: 40px;
+  border-bottom: 1px solid var(--rule);
+}
+.footer-top h4 { font-size: 11px; letter-spacing: 0.3em; color: var(--ink-mid); margin-bottom: 16px; font-weight: 700; }
+.footer-top ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.footer-top a { color: var(--ink); font-weight: 600; font-size: 11px; }
+.footer-top a:hover { color: var(--rust); }
+.footer-tagline {
+  font-family: var(--font-sans);
+  font-style: italic;
+  font-weight: 200;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  line-height: 1.2;
+  color: var(--ink);
+  margin-top: 14px;
+}
+.footer-tagline b { font-style: normal; font-weight: 500; color: var(--rust); }
+.footer-bot {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  padding-top: 20px;
+  font-size: 10px; color: var(--ink-mid);
+  letter-spacing: 0.3em;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 1100px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 36px; }
+  .section-head { grid-template-columns: 1fr; gap: 24px; }
+  .station-grid, .steps, .instrument, .tiers { grid-template-columns: repeat(2, 1fr); }
+  .model-card { grid-template-columns: 1fr; }
+  .faq-item { grid-template-columns: 40px 1fr; }
+  .faq-item .a { grid-column: 2; }
+  .cta-strip .grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  :root { --section-pad: 80px; }
+  .nav-links { display: none; }
+  .station-grid, .steps, .instrument, .tiers { grid-template-columns: 1fr; }
+  .footer-top { grid-template-columns: 1fr; }
+  .live-banner .container { flex-direction: column; gap: 6px; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  .live-dot { animation: none; }
+  body::after { display: none; }
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LIVE BANNER ============ -->
+<div class="live-banner">
+  <div class="container">
+    <span><span class="live-dot"></span>LIVE · BUILT IN PUBLIC · DAY 01 · STARTED SAT 10:00</span>
+    <a href="https://github.com/zertyn-ai/personalized-radio-station" target="_blank" rel="noopener">
+      WATCH THE BUILD ON GITHUB →
+    </a>
+  </div>
+</div>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="brand-mark" href="#top">
+      <span>CONSOLE-7</span>
+      <span class="sub">— PERSONAL BROADCAST UNIT</span>
+    </a>
+    <div class="nav-links">
+      <a href="#sources">Sources</a>
+      <a href="#how">How it works</a>
+      <a href="#instrument">Instrument</a>
+      <a href="#model">Model</a>
+      <a href="#tiers">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="radio.html" target="_blank">Live device</a>
+      <a class="btn btn-rust btn-sm" href="#tiers">Request invite <span class="arrow">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <div class="container hero-grid">
+    <div>
+      <div class="eyebrow"><span class="num">00</span>CONSOLE-7 · A LIVE EXPERIMENT</div>
+      <h1>Radio,<br>compiled<br>for <span class="accent">one&nbsp;listener</span>.</h1>
+      <p class="lead">
+        A personal broadcast unit. Pulls from your X timeline, the podcasts you actually
+        follow, and the news. Tell it how long you've got — a 12-minute commute, a 45-minute
+        run — and it writes a show that fits. Voiced by ElevenLabs. Tuned by a knob.
+      </p>
+      <div class="hero-meta">
+        <span><b>04</b> · sources</span>
+        <span><b>05–180</b> · minutes</span>
+        <span><b>ELEVENLABS</b> · voice</span>
+        <span><b>OPEN</b> · github</span>
+      </div>
+      <div class="hero-cta">
+        <a class="btn btn-rust" href="#tiers">Request invite <span class="arrow">→</span></a>
+        <a class="btn btn-ghost" href="radio.html" target="_blank">Try the dial</a>
+      </div>
+    </div>
+    <div>
+      <div class="device-frame">
+        <iframe class="device-iframe" src="radio.html" title="CONSOLE-7 device" loading="lazy"></iframe>
+        <div class="device-meta">
+          <span>UNIT <b>SN-7042</b></span>
+          <span>STATUS <b>LIVE</b></span>
+          <span>OUTPUT <b>2.0 STEREO</b></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ MARQUEE ============ -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span><span class="freq">90.0</span>AI</span><span class="star">—</span>
+    <span><span class="freq">95.0</span>WEB3</span><span class="star">—</span>
+    <span><span class="freq">100.0</span>BREAKING NEWS</span><span class="star">—</span>
+    <span><span class="freq">105.0</span>WEATHER</span><span class="star">—</span>
+    <span>X TIMELINE</span><span class="star">—</span>
+    <span>YOUR PODCASTS</span><span class="star">—</span>
+    <span>FITS YOUR COMMUTE</span><span class="star">—</span>
+    <span>VOICED BY ELEVENLABS</span><span class="star">—</span>
+    <!-- duplicate for seamless loop -->
+    <span><span class="freq">90.0</span>AI</span><span class="star">—</span>
+    <span><span class="freq">95.0</span>WEB3</span><span class="star">—</span>
+    <span><span class="freq">100.0</span>BREAKING NEWS</span><span class="star">—</span>
+    <span><span class="freq">105.0</span>WEATHER</span><span class="star">—</span>
+    <span>X TIMELINE</span><span class="star">—</span>
+    <span>YOUR PODCASTS</span><span class="star">—</span>
+    <span>FITS YOUR COMMUTE</span><span class="star">—</span>
+    <span>VOICED BY ELEVENLABS</span><span class="star">—</span>
+  </div>
+</div>
+
+<!-- ============ SOURCES ============ -->
+<section class="block" id="sources">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">01</span>The Band</div>
+        <h2>Four sources.<br>One voice.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          We don't ship a feed reader. We ship a frequency band. Four content sources,
+          each one summarized, scripted, and voiced into a continuous show. Drop in
+          when you want. Leave when your stop comes.
+        </p>
+      </div>
+    </div>
+    <div class="station-grid">
+      <article class="station-card">
+        <span class="num">01 / 04</span>
+        <span class="freq">90.0<span class="unit">MHz</span></span>
+        <span class="name">AI</span>
+        <span class="tag">papers · model drops · benchmarks</span>
+        <p class="desc">Signals from the language models. New papers, new capabilities, new strange. Pulls from arXiv, X, and the labs' own posts.</p>
+      </article>
+      <article class="station-card">
+        <span class="num">02 / 04</span>
+        <span class="freq">95.0<span class="unit">MHz</span></span>
+        <span class="name">WEB3</span>
+        <span class="tag">chains · protocols · governance</span>
+        <p class="desc">Crypto without the noise. ETH, BTC, L2 fees, DAO votes, stablecoin policy. Filtered for what actually moved.</p>
+      </article>
+      <article class="station-card">
+        <span class="num">03 / 04</span>
+        <span class="freq">100.0<span class="unit">MHz</span></span>
+        <span class="name">BREAKING NEWS</span>
+        <span class="tag">wires · live · world</span>
+        <p class="desc">Right now, around the world. Reuters, AP, regional desks. Headlines that just landed, summarized to fit the time you have.</p>
+      </article>
+      <article class="station-card">
+        <span class="num">04 / 04</span>
+        <span class="freq">105.0<span class="unit">MHz</span></span>
+        <span class="name">WEATHER</span>
+        <span class="tag">forecasts · alerts · conditions</span>
+        <p class="desc">Conditions, fronts, and what to expect by morning. Local first. Travel mode pulls from your destinations.</p>
+      </article>
+      <article class="station-card soon">
+        <span class="num">+ SOON</span>
+        <span class="freq">— —<span class="unit">MHz</span></span>
+        <span class="name">CHANNEL ZERO</span>
+        <span class="tag">a source you train</span>
+        <p class="desc">Speak its name into the dial, paste a few feeds and a paragraph of intent. The model builds the station overnight.</p>
+      </article>
+      <article class="station-card soon">
+        <span class="num">+ ROADMAP</span>
+        <span class="freq">— —<span class="unit">MHz</span></span>
+        <span class="name">MARKETS · SPORTS · CULTURE</span>
+        <span class="tag">on the band soon</span>
+        <p class="desc">The map will fill out as we ship. Vote on which source we add next via the GitHub issues — we read them.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="block" id="how">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">02</span>How it works</div>
+        <h2>Three motions.<br>Then you're listening.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          Console-7 doesn't give you a search bar. It gives you a knob, a band, and
+          a length. The interaction is the entertainment.
+        </p>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <svg class="icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="32" cy="32" r="28"/>
+          <circle cx="32" cy="32" r="14"/>
+          <line x1="32" y1="6" x2="32" y2="14" stroke="#c5481e" stroke-width="2.5"/>
+          <line x1="32" y1="18" x2="32" y2="22"/>
+          <line x1="46" y1="32" x2="42" y2="32"/>
+          <line x1="32" y1="46" x2="32" y2="42"/>
+          <line x1="18" y1="32" x2="22" y2="32"/>
+        </svg>
+        <span class="num">00-1 · TUNE</span>
+        <h3>Pick a source.</h3>
+        <p>Drag the rotary dial or click a station marker. The knob snaps to the four sources — AI, Web3, Breaking News, Weather. No search bar. No infinite scroll.</p>
+      </div>
+      <div class="step">
+        <svg class="icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="32" cy="32" r="24"/>
+          <line x1="32" y1="32" x2="32" y2="16" stroke="#c5481e" stroke-width="2.5"/>
+          <line x1="32" y1="32" x2="44" y2="38"/>
+          <circle cx="32" cy="32" r="2" fill="#c5481e" stroke="#c5481e"/>
+          <line x1="14" y1="56" x2="50" y2="56"/>
+          <line x1="20" y1="56" x2="20" y2="52"/>
+          <line x1="32" y1="56" x2="32" y2="50" stroke="#c5481e" stroke-width="2"/>
+          <line x1="44" y1="56" x2="44" y2="52"/>
+        </svg>
+        <span class="num">00-2 · SET TIME</span>
+        <h3>Tell it how long.</h3>
+        <p>12 minutes. 45 minutes. Two hours. The model writes to fit. Headlines compress for short windows, deeper context unfolds for longer ones.</p>
+      </div>
+      <div class="step">
+        <svg class="icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="14" y="20" width="36" height="24" rx="2"/>
+          <line x1="20" y1="44" x2="20" y2="38"/>
+          <line x1="26" y1="44" x2="26" y2="32"/>
+          <line x1="32" y1="44" x2="32" y2="28" stroke="#c5481e" stroke-width="2"/>
+          <line x1="38" y1="44" x2="38" y2="34"/>
+          <line x1="44" y1="44" x2="44" y2="40"/>
+          <circle cx="20" cy="14" r="2" fill="#c5481e" stroke="#c5481e"/>
+        </svg>
+        <span class="num">00-3 · LISTEN</span>
+        <h3>Hit play.</h3>
+        <p>The next show is generated while you're listening to the current one. Continuous, never repeating. Walk out the door — it'll be ready by the time the headphones are on.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTRUMENT ============ -->
+<section class="block" id="instrument">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">03</span>The Instrument</div>
+        <h2>Built for hands.<br>Not for cursors.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          Console-7 is a piece of equipment. Beige metal panel, recessed wells, warm
+          cream plates, an amber CRT, a 12-band spectrum well, twin walnut speakers.
+          You can feel where things are.
+        </p>
+      </div>
+    </div>
+    <div class="instrument">
+      <div class="panel">
+        <div class="visual">
+          <div class="viz-crt">
+            <span class="num">95.0</span>
+            <span class="name">WEB3</span>
+            <span class="meta">FM · STEREO · LOCKED</span>
+          </div>
+        </div>
+        <div class="body">
+          <span class="label">A · DISPLAY</span>
+          <h3>Amber CRT</h3>
+          <p>Phosphor-style display. Now playing, generated description, signal status. Scanlines and curvature highlight included — they earn their keep.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="visual">
+          <div class="viz-dial"><div class="center"></div></div>
+        </div>
+        <div class="body">
+          <span class="label">B · CONTROL</span>
+          <h3>Rotary dial</h3>
+          <p>220 mm machined cap, knurled bezel, 90° per MHz. Drag to sweep, scroll to step. The dial snaps to each source on release — magnetic detents you can almost hear.</p>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="visual">
+          <div class="viz-eq" id="viz-eq"></div>
+        </div>
+        <div class="body">
+          <span class="label">C · SPECTRUM</span>
+          <h3>12-band well</h3>
+          <p>Real-time spectrum. Amber on the bottom 60 percent, warm yellow above, rust at the +3 dB ceiling. Audio is alive on the panel before it reaches your ears.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MODEL ============ -->
+<section class="block" id="model">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">04</span>The Model</div>
+        <h2>AURA-3 runs the studio.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          Console-7's shows are not pre-recorded. AURA-3 reads your sources, picks
+          what's worth saying, writes a script, and hands it to ElevenLabs to voice.
+          Every dial-in is a one-of-one.
+        </p>
+      </div>
+    </div>
+    <article class="model-card">
+      <div class="left">
+        <span class="badge">MODEL CARD · MK III</span>
+        <h2>AURA-3</h2>
+        <p>
+          A 7B-parameter editorial model fine-tuned for radio-form continuity, hand-off
+          transitions, and host voice. Reads your sources against a per-listener taste
+          vector. Writes for the time you have. Hands the script to ElevenLabs (or
+          podcastfy on the OSS path) for voicing.
+        </p>
+        <p style="font-size: 12px; color: var(--ink-mid);">
+          / READS X timeline, podcast feeds, news wires<br>
+          / WRITES to fit your time window — 5 min to 3 hours<br>
+          / VOICES via ElevenLabs · podcastfy fallback
+        </p>
+      </div>
+      <div class="spec-table">
+        <div class="spec-row"><span class="k">Sources</span><span class="v">X · podcasts · news · weather</span></div>
+        <div class="spec-row"><span class="k">Voice</span><span class="v">ElevenLabs <b>(paid)</b> · podcastfy <b>(OSS)</b></span></div>
+        <div class="spec-row"><span class="k">Time fit</span><span class="v"><b>05–180 min</b> · model writes to length</span></div>
+        <div class="spec-row"><span class="k">Latency</span><span class="v">~30 sec to first segment</span></div>
+        <div class="spec-row"><span class="k">Repetition</span><span class="v">Strict zero — never the same show</span></div>
+        <div class="spec-row"><span class="k">Memory</span><span class="v">7-day rolling window per source</span></div>
+        <div class="spec-row"><span class="k">Privacy</span><span class="v">Feed data stays on your machine</span></div>
+        <div class="spec-row"><span class="k">Open source</span><span class="v">Tuner & UI on <b>GitHub</b></span></div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ============ TIERS ============ -->
+<section class="block" id="tiers">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">05</span>Engagement Tiers</div>
+        <h2>Choose your path.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          All tiers ship the full instrument. What changes is how many sources you
+          can wire in — and whether you can train your own.
+        </p>
+      </div>
+    </div>
+    <div class="tiers">
+      <article class="tier">
+        <span class="tier-num">TIER 00-1</span>
+        <h3>LISTENER</h3>
+        <p class="tagline">For the curious.</p>
+        <div class="price"><span class="num">$0</span><span class="per">/ free forever</span></div>
+        <ul>
+          <li>One source of your choice</li>
+          <li>Full instrument UI</li>
+          <li>OSS voice (podcastfy)</li>
+          <li>Browser only · no offline</li>
+        </ul>
+        <a class="btn btn-ghost" href="radio.html">Start listening <span class="arrow">→</span></a>
+      </article>
+
+      <article class="tier featured">
+        <span class="badge-feat">Most operators choose this</span>
+        <span class="tier-num">TIER 00-2</span>
+        <h3>OPERATOR</h3>
+        <p class="tagline">For the daily driver.</p>
+        <div class="price"><span class="num">$12</span><span class="per">/ month</span></div>
+        <ul>
+          <li>All four sources, always on</li>
+          <li>Wire in your X feed + podcasts</li>
+          <li>ElevenLabs voicing</li>
+          <li>macOS / Linux / mobile app</li>
+          <li>Offline mode · 24h cache</li>
+        </ul>
+        <a class="btn btn-rust" href="#">Request invite <span class="arrow">→</span></a>
+      </article>
+
+      <article class="tier">
+        <span class="tier-num">TIER 00-3</span>
+        <h3>STATION CHIEF</h3>
+        <p class="tagline">For the programmer.</p>
+        <div class="price"><span class="num">$48</span><span class="per">/ month</span></div>
+        <ul>
+          <li>Everything in Operator</li>
+          <li>Train Channel Zero · your source</li>
+          <li>API access · 50k req/mo</li>
+          <li>Priority on the GitHub roadmap</li>
+          <li>White-glove onboarding</li>
+        </ul>
+        <a class="btn btn-ghost" href="#">Talk to us <span class="arrow">→</span></a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="block" id="faq">
+  <div class="container">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow"><span class="num">06</span>Operator's FAQ</div>
+        <h2>Read before broadcast.</h2>
+      </div>
+      <div class="right">
+        <p class="lead">
+          Short answers to the questions that come up before the first invite.
+          Long answers in the handbook — and live, in the GitHub issues.
+        </p>
+      </div>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <span class="num">06-1</span>
+        <span class="q">What's actually playing?</span>
+        <p class="a">Generated audio. AURA-3 reads your sources, picks the items worth covering, writes a script, and ElevenLabs voices it (podcastfy on the open-source path). Nothing is pre-recorded; nothing is stitched from licensed clips.</p>
+      </div>
+      <div class="faq-item">
+        <span class="num">06-2</span>
+        <span class="q">Where do the sources come from?</span>
+        <p class="a">Your X timeline, your podcast subscriptions, news wires, and weather services. We pull, dedupe, and rank against a per-listener taste vector. Skip and dwell signals tune it; nothing is shared back across users.</p>
+      </div>
+      <div class="faq-item">
+        <span class="num">06-3</span>
+        <span class="q">How does it fit my commute?</span>
+        <p class="a">You set a length — 12 minutes, 45 minutes, two hours. The model writes to that target. Short windows compress to headlines and one deep dive; long windows unfold context, voices, and breathing room.</p>
+      </div>
+      <div class="faq-item">
+        <span class="num">06-4</span>
+        <span class="q">Why a knob? It's the web.</span>
+        <p class="a">Because radio is exploration, not search. The dial gives you serendipity, accidents, the feeling of finding a station. A search bar collapses that into a query. We are not building a query tool.</p>
+      </div>
+      <div class="faq-item">
+        <span class="num">06-5</span>
+        <span class="q">Why amber? Why beige?</span>
+        <p class="a">It's how machines used to look when machines were trustworthy. Mission control consoles, hi-fi receivers, lab equipment — the warmth was on purpose. Our software is supposed to feel like that, not like a notification.</p>
+      </div>
+      <div class="faq-item">
+        <span class="num">06-6</span>
+        <span class="q">"Built in public" — what does that actually mean?</span>
+        <p class="a">The repo is public from day one. Every commit, every blocker, every near-pivot. We started Saturday at 10 AM and we'll keep posting through ship. If you want to watch software get made, watch <a href="https://github.com/zertyn-ai/personalized-radio-station" target="_blank" rel="noopener" style="color: var(--rust);">the repo</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA STRIP ============ -->
+<section class="cta-strip">
+  <span class="star">✱</span>
+  <div class="container grid">
+    <div>
+      <div class="eyebrow" style="color: var(--rust);">THE INVITE</div>
+      <h2 style="margin-top: 14px;">CONSOLE-7 is being built<br>in public. Right now.</h2>
+      <p class="lead" style="color: rgba(240,228,196,0.75); margin-top: 18px;">
+        We started Saturday at 10 AM and we're admitting 200 operators per month while
+        AURA-3 finishes training. Tell us how you'd use the band — we'll write back with
+        a key and a seat in the studio.
+      </p>
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+      <a class="btn" href="#">Request invite <span class="arrow">→</span></a>
+      <a class="btn btn-ghost" href="https://github.com/zertyn-ai/personalized-radio-station" target="_blank" rel="noopener">Watch the build</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div>
+        <a class="brand-mark" href="#top">
+          <span>CONSOLE-7</span>
+          <span class="sub">— PERSONAL BROADCAST UNIT</span>
+        </a>
+        <p class="footer-tagline">Where <b>human attention</b> meets <b>machine scale</b>.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="#sources">Sources</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#instrument">Instrument</a></li>
+          <li><a href="#model">Model card</a></li>
+          <li><a href="radio.html" target="_blank">Live device</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Build log</h4>
+        <ul>
+          <li><a href="https://github.com/zertyn-ai/personalized-radio-station" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="#">Day-1 notes</a></li>
+          <li><a href="#">Studio sessions</a></li>
+          <li><a href="#">Press</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Channels</h4>
+        <ul>
+          <li><a href="#">X / Twitter</a></li>
+          <li><a href="#">Substack</a></li>
+          <li><a href="#">RSS</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <span>© CONSOLE-7 · 2026</span>
+      <span>SN-7042 · MK II · ROOM 7</span>
+      <span>TERMS · PRIVACY · STATUS</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* Animated EQ panel for the Instrument section — matches the device's spectrum well. */
+(() => {
+  const eq = document.getElementById('viz-eq');
+  if (!eq) return;
+  const BARS = 12, CELLS = 14;
+  for (let b = 0; b < BARS; b++) {
+    const col = document.createElement('div');
+    col.className = 'col';
+    for (let c = 0; c < CELLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      col.appendChild(cell);
+    }
+    eq.appendChild(col);
+  }
+  const cols = eq.querySelectorAll('.col');
+  const prev = new Array(BARS).fill(0);
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function frame(t) {
+    for (let b = 0; b < BARS; b++) {
+      const target = reduceMotion
+        ? 0.5
+        : Math.max(0, Math.min(1,
+            0.5
+            + Math.sin(t * 0.002 + b * 0.55) * 0.32
+            + Math.sin(t * 0.005 + b * 1.1) * 0.18
+            + (Math.random() - 0.5) * 0.20
+          ));
+      prev[b] += (target - prev[b]) * 0.18;
+      const lit = Math.round(prev[b] * CELLS);
+      const cells = cols[b].children;
+      for (let c = 0; c < CELLS; c++) {
+        const fromBottom = (CELLS - 1) - c;
+        let cls = 'cell';
+        if (fromBottom < lit) {
+          if (fromBottom < 8) cls += ' a';
+          else if (fromBottom < 13) cls += ' y';
+          else cls += ' r';
+        }
+        cells[c].className = cls;
+      }
+    }
+    if (!reduceMotion) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
