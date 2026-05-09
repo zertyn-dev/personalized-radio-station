@@ -1085,9 +1085,12 @@ function wireSettings() {
 }
 
 function fitDevice() {
-  const width = Math.max(window.innerWidth - 56, 120);
-  const height = Math.max(window.innerHeight - 80, 120);
-  const scale = Math.max(0.46, Math.min(width / 920, height / 650, 1.55));
+  const edgeGap = window.innerWidth > 720 ? 12 : 28;
+  const radioWidth = els.device?.offsetWidth || 920;
+  const radioHeight = (els.device?.offsetHeight || 548) + 44;
+  const width = Math.max(window.innerWidth - edgeGap * 2, 120);
+  const height = Math.max(window.innerHeight - edgeGap * 2, 120);
+  const scale = Math.max(0.46, Math.min(width / radioWidth, height / radioHeight, 1.55));
   document.documentElement.style.setProperty("--device-scale", scale.toFixed(3));
 }
 
