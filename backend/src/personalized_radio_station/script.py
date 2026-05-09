@@ -86,14 +86,16 @@ def _build_prompt(
         "{\n"
         '  "title": "Episode title",\n'
         '  "segments": [\n'
-        '    {"type": "intro|weather|news|outro", "voice": "host", "text": "..."}\n'
+        '    {"type": "intro|news|outro", "voice": "host", "text": "..."}\n'
         "  ]\n"
         "}\n\n"
         "Open with a clean station greeting that fits the listener's local time of "
         "day. When `weather.time_of_day` is provided (morning, afternoon, evening, "
         "late_night), match the greeting to it (e.g. `Good morning` only in the "
         "morning). Do not start mid-thought or as if the host was already talking. "
-        "Introduce the station and move into the briefing.\n"
+        "Introduce the station and move directly into the briefing. "
+        "Do NOT produce a weather segment or read a weather report. The weather "
+        "context is provided only so you can pick the right greeting.\n"
         "Follow style closely: casual should feel more like vibes and texture; "
         "professional should feel slightly more expert, with concise context and "
         "clear framing. Use the same voice label for every segment when the "

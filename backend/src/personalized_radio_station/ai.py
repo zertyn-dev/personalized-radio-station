@@ -154,27 +154,14 @@ def _mock_completion(messages: list[Message]) -> str:
         weather = {}
         news = []
 
+    del weather
     segments = [
         {
             "type": "intro",
             "voice": "host",
-            "text": (
-                f"...and that is the thread running through this hour on {station_name}. "
-                "Let's bring the briefing into focus."
-            ),
+            "text": (f"You're tuned to {station_name}. Here's the briefing."),
         }
     ]
-    if weather:
-        segments.append(
-            {
-                "type": "weather",
-                "voice": "host",
-                "text": (
-                    f"In {weather.get('location', 'your area')}, it is "
-                    f"{weather.get('temperature_c', 'unknown')} degrees Celsius."
-                ),
-            }
-        )
 
     for item in news[:3]:
         source = item.get("source") or "a news source"

@@ -867,22 +867,16 @@ def _build_mock_episode(
     topics: list[str],
     host_format: str = "solo",
 ) -> dict[str, Any]:
+    del weather_name
     news_voice = "cohost" if host_format == "duo" else "host"
     segments = [
         {
             "type": "intro",
             "voice": "host",
             "text": (
-                f"...and you are tuned to {station_name}, where the signal is running "
-                f"{style}. This is a local no-model test for a {duration} station."
-            ),
-        },
-        {
-            "type": "weather",
-            "voice": "host",
-            "text": (
-                f"The weather check for {weather_name}: clear demo skies, twenty one "
-                "degrees Celsius, and a light breeze in the mix."
+                f"You are tuned to {station_name}, running {style}. "
+                f"This is a local no-model test for a {duration} station — "
+                "let's get straight to the briefing."
             ),
         },
     ]

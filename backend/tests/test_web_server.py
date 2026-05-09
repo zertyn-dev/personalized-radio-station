@@ -62,15 +62,21 @@ class WebServerTests(unittest.TestCase):
                 self.assertEqual(status["status"], "complete")
                 self.assertIn("elapsed_seconds", status)
                 ready_segments = [
-                    segment for segment in status["segments"] if segment["status"] == "ready"
+                    segment
+                    for segment in status["segments"]
+                    if segment["status"] == "ready"
                 ]
                 self.assertGreaterEqual(len(ready_segments), 4)
                 episode = json.loads(
-                    (Path(temp_dir) / "episodes" / job["episode_id"] / "episode.json").read_text()
+                    (
+                        Path(temp_dir) / "episodes" / job["episode_id"] / "episode.json"
+                    ).read_text()
                 )
                 self.assertEqual(episode["timing"]["target_duration"], "3 minutes")
 
-                segment_audio = _get_bytes(f"{base_url}{ready_segments[0]['audio_url']}")
+                segment_audio = _get_bytes(
+                    f"{base_url}{ready_segments[0]['audio_url']}"
+                )
                 self.assertEqual(segment_audio[:4], b"RIFF")
 
                 final_audio = _get_bytes(f"{base_url}{status['audio_url']}")
@@ -145,18 +151,23 @@ tts:
             }
 
             try:
-                with patch(
-                    "personalized_radio_station.web_server.assert_runtime_ready"
-                ) as ready_mock, patch(
-                    "personalized_radio_station.web_server.fetch_news",
-                    return_value=news_items,
-                ) as news_mock, patch(
-                    "personalized_radio_station.web_server.fetch_weather",
-                    return_value=weather,
-                ) as weather_mock, patch(
-                    "personalized_radio_station.web_server.generate_script",
-                    return_value=episode,
-                ) as script_mock:
+                with (
+                    patch(
+                        "personalized_radio_station.web_server.assert_runtime_ready"
+                    ) as ready_mock,
+                    patch(
+                        "personalized_radio_station.web_server.fetch_news",
+                        return_value=news_items,
+                    ) as news_mock,
+                    patch(
+                        "personalized_radio_station.web_server.fetch_weather",
+                        return_value=weather,
+                    ) as weather_mock,
+                    patch(
+                        "personalized_radio_station.web_server.generate_script",
+                        return_value=episode,
+                    ) as script_mock,
+                ):
                     job = _post_json(
                         f"{base_url}/api/episodes",
                         {
@@ -175,8 +186,13 @@ tts:
                 ready_mock.assert_called_once()
                 news_mock.assert_called_once()
                 fetched_config = news_mock.call_args.args[0]
-                self.assertEqual(fetched_config.rss_feeds[: len(DEFAULT_RSS_FEEDS)], DEFAULT_RSS_FEEDS)
-                self.assertIn("https://example.com/custom.xml", fetched_config.rss_feeds)
+                self.assertEqual(
+                    fetched_config.rss_feeds[: len(DEFAULT_RSS_FEEDS)],
+                    DEFAULT_RSS_FEEDS,
+                )
+                self.assertIn(
+                    "https://example.com/custom.xml", fetched_config.rss_feeds
+                )
                 self.assertNotIn("file:///tmp/not-rss.xml", fetched_config.rss_feeds)
                 weather_mock.assert_called_once()
                 script_mock.assert_called_once()
@@ -191,7 +207,10 @@ tts:
                 self.assertEqual(status["status"], "complete")
                 self.assertEqual(len(status["segments"]), 2)
                 self.assertTrue(status["audio_url"])
-                self.assertEqual(_get_bytes(f"{base_url}{status['segments'][0]['audio_url']}")[:4], b"RIFF")
+                self.assertEqual(
+                    _get_bytes(f"{base_url}{status['segments'][0]['audio_url']}")[:4],
+                    b"RIFF",
+                )
             finally:
                 server.shutdown()
                 server.server_close()
@@ -228,7 +247,9 @@ tts:
 
                 vibes = _get_json(f"{base_url}/api/vibes")
                 self.assertEqual(len(vibes["vibes"]), 1)
-                self.assertIn("Hacker News", [preset["label"] for preset in vibes["presets"]])
+                self.assertIn(
+                    "Hacker News", [preset["label"] for preset in vibes["presets"]]
+                )
 
                 job = _post_json(
                     f"{base_url}/api/episodes",
@@ -259,7 +280,7 @@ tts:
                 episode = json.loads(
                     (root / "episodes" / job["episode_id"] / "episode.json").read_text()
                 )
-                self.assertEqual(len(episode["segments"]), 5)
+                self.assertEqual(len(episode["segments"]), 4)
             finally:
                 server.shutdown()
                 server.server_close()
@@ -278,7 +299,9 @@ tts:
 
             try:
                 job = _post_json(f"{base_url}/api/episodes", {})
-                status_code, body = _get_status_and_json(f"{base_url}{job['audio_url']}")
+                status_code, body = _get_status_and_json(
+                    f"{base_url}{job['audio_url']}"
+                )
                 self.assertEqual(status_code, 202)
                 self.assertEqual(body["error"], "Audio is not ready")
                 self.assertTrue(_read_events(f"{base_url}{job['events_url']}"))
