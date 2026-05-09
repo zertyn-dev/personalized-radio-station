@@ -55,16 +55,18 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
 echo "[6/7] install python deps"
 sudo -u "$SERVICE_USER" -H bash -lc "cd $INSTALL_DIR/backend && /usr/local/bin/uv sync"
 
-echo "[7/7] install systemd unit + Caddyfile"
+echo "[7/7] install systemd unit"
 install -m 0644 "$DEPLOY_DIR/vibefm.service" /etc/systemd/system/vibefm.service
-install -m 0644 "$DEPLOY_DIR/Caddyfile" /etc/caddy/Caddyfile
 systemctl daemon-reload
 systemctl enable --now vibefm.service
-systemctl reload caddy || systemctl restart caddy
 
 echo
 echo "Done. Status:"
 systemctl --no-pager status vibefm.service | head -5
 echo
-echo "Visit: https://vibefm.xyz"
+echo "NOTE: Caddyfile NOT installed automatically (box may host other sites)."
+echo "Append this block to /etc/caddy/Caddyfile, then 'systemctl reload caddy':"
+echo "----"
+cat "$DEPLOY_DIR/Caddyfile"
+echo "----"
 echo "Logs:  journalctl -u vibefm -f"
