@@ -52,12 +52,12 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$STATE_DIR"
 
 echo "[5/7] clone or update repo (branch: $BRANCH)"
 if [[ ! -d "$INSTALL_DIR/.git" ]]; then
-	git clone "$REPO_URL" "$INSTALL_DIR"
+	mkdir -p "$INSTALL_DIR"
+	chown "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+	sudo -u "$SERVICE_USER" -H git clone "$REPO_URL" "$INSTALL_DIR"
 fi
-git -C "$INSTALL_DIR" fetch --depth=1 origin "$BRANCH"
-git -C "$INSTALL_DIR" checkout "$BRANCH"
-git -C "$INSTALL_DIR" reset --hard "origin/$BRANCH"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR"
+sudo -u "$SERVICE_USER" -H bash -lc "cd $INSTALL_DIR && git fetch --depth=1 origin $BRANCH && git checkout $BRANCH && git reset --hard origin/$BRANCH"
 
 echo "[6/7] install python deps + build frontend"
 sudo -u "$SERVICE_USER" -H bash -lc "cd $INSTALL_DIR/backend && /usr/local/bin/uv sync"
