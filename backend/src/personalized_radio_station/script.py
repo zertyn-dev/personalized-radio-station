@@ -67,7 +67,6 @@ def _build_prompt(
         ),
         "voices": config.voices,
         "host_format": "solo" if config.tts.single_voice else "duo",
-        "opening_style": "already_on_air_listener_just_tuned_in",
         "voice_policy": (
             f'Use the voice label "{config.tts.primary_voice}" for every segment.'
             if config.tts.single_voice
@@ -90,10 +89,11 @@ def _build_prompt(
         '    {"type": "intro|weather|news|outro", "voice": "host", "text": "..."}\n'
         "  ]\n"
         "}\n\n"
-        "The first segment must feel like the station was already playing and the "
-        "listener has just tuned in. Start mid-flow, as if the host is already "
-        "speaking, then smoothly move into the briefing. Do not begin with a formal "
-        "welcome, episode setup, or phrase like `Good morning, here is...`.\n"
+        "Open with a clean station greeting that fits the listener's local time of "
+        "day. When `weather.time_of_day` is provided (morning, afternoon, evening, "
+        "late_night), match the greeting to it (e.g. `Good morning` only in the "
+        "morning). Do not start mid-thought or as if the host was already talking. "
+        "Introduce the station and move into the briefing.\n"
         "Follow style closely: casual should feel more like vibes and texture; "
         "professional should feel slightly more expert, with concise context and "
         "clear framing. Use the same voice label for every segment when the "
@@ -188,7 +188,7 @@ def _build_revision_prompt(
         f"The script is {word_count} words, outside the target range of "
         f"{budget.min_words}-{budget.max_words} words for {config.duration.label}.\n"
         f"Please {direction} it to approximately {budget.target_words} spoken words.\n"
-        "Keep the same already-on-air opening style. Use the same voice label for "
+        "Keep the same opening greeting style. Use the same voice label for "
         "every segment when present. Do not add facts beyond the existing script.\n"
         "Return valid JSON only with the same shape.\n\n"
         f"Current episode JSON:\n{json.dumps(episode, indent=2)}"

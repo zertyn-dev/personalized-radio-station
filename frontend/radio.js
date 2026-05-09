@@ -1,6 +1,6 @@
 const FREQ_MIN = 87.5;
 const FREQ_MAX = 108.0;
-const DURATION_MIN = 1;
+const DURATION_MIN = 0;
 const DURATION_MAX = 30;
 const DEFAULT_BACKEND_BASE = "http://127.0.0.1:8765";
 const ACTIVE_STATES = new Set(["starting", "generating", "playing"]);
@@ -71,7 +71,7 @@ const fallbackStations = [
 const state = {
   freqMHz: fallbackStations[0].mhz,
   volume: 72,
-  durationSec: 120,
+  durationSec: 0,
   remainingSec: 0,
   mode: "mock",
   apiBase: defaultApiBase(),
@@ -102,8 +102,12 @@ const els = {};
 let frequencyDial;
 let durationDial;
 let analyzerColumns = [];
+let barVisualizerColumns = [];
+let analyzerLevels = [];
+let barVisualizerLevels = [];
 let apiCheckTimer = null;
 let tunerDragging = false;
+let durationPulseTimer = null;
 
 function defaultApiBase() {
   if (window.location.protocol === "http:" || window.location.protocol === "https:") {
@@ -291,9 +295,6 @@ function setDurationMinutes(value) {
   const minutes = Math.round(clamp(value, DURATION_MIN, DURATION_MAX));
   state.durationSec = minutes * 60;
   durationDial?.setValue(minutes, false);
-  try {
-    localStorage.setItem("vibefm.durationSec", String(state.durationSec));
-  } catch {}
   render();
 }
 
@@ -497,6 +498,7 @@ function buildAnalyzer() {
   els.analyzer.classList.add("analyzer");
   els.analyzer.innerHTML = "";
   const columns = window.matchMedia("(max-width: 540px)").matches ? 20 : 28;
+  analyzerLevels = new Array(columns).fill(0);
   analyzerColumns = [];
   for (let i = 0; i < columns; i += 1) {
     const col = document.createElement("span");
@@ -513,21 +515,82 @@ function buildAnalyzer() {
   }
 }
 
+function buildBarVisualizer() {
+  if (!els.barVisualizer) return;
+  els.barVisualizer.innerHTML = "";
+  const columns = window.matchMedia("(max-width: 540px)").matches ? 28 : 42;
+  barVisualizerLevels = new Array(columns).fill(0);
+  barVisualizerColumns = [];
+  for (let i = 0; i < columns; i += 1) {
+    const col = document.createElement("span");
+    col.className = "an-col";
+    const cells = [];
+    for (let row = 0; row < 12; row += 1) {
+      const cell = document.createElement("span");
+      cell.className = "an-cell";
+      cells.push(cell);
+      col.appendChild(cell);
+    }
+    barVisualizerColumns.push(cells);
+    els.barVisualizer.appendChild(col);
+  }
+}
+
+function targetBarLevel(index, totalColumns, t, isOn, idleLevel) {
+  const midpoint = (totalColumns - 1) / 2;
+  const distanceFromCenter = Math.abs(index - midpoint) / Math.max(1, midpoint);
+  const bias = 0.54 + (1 - distanceFromCenter) * 0.46;
+  if (!isOn) return idleLevel * bias;
+  const wave =
+    0.48 +
+    0.22 * Math.sin(t + index * 0.31) +
+    0.16 * Math.sin(t * 1.42 + index * 0.57 + 1.2) +
+    0.08 * Math.sin(t * 0.64 - index * 0.2 + 2.4);
+  return clamp(wave * bias, 0.04, 0.98);
+}
+
+function paintBarCells(cells, level) {
+  const litHeight = level * cells.length;
+  cells.forEach((cell, row) => {
+    const fromBottom = cells.length - 1 - row;
+    const alpha = clamp((litHeight - fromBottom) * 0.76, 0, 1);
+    const onLeadingEdge = alpha > 0.12 && fromBottom > litHeight - 1.36;
+    cell.style.setProperty("--cell-alpha", alpha.toFixed(3));
+    cell.style.setProperty("--cell-scale", (0.42 + alpha * 0.58).toFixed(3));
+    cell.classList.toggle("lit", alpha > 0.07);
+    cell.classList.toggle("hi", onLeadingEdge && level > 0.22);
+  });
+}
+
+function animateBarSet(columns, levels, t, isOn, idleLevel) {
+  if (levels.length !== columns.length) levels.splice(0, levels.length, ...new Array(columns.length).fill(0));
+  columns.forEach((cells, index) => {
+    const current = levels[index] || 0;
+    const target = targetBarLevel(index, columns.length, t, isOn, idleLevel);
+    const easing = target > current ? 0.18 : 0.1;
+    const next = current + (target - current) * easing;
+    levels[index] = next;
+    paintBarCells(cells, next);
+  });
+}
+
 function animateAnalyzer() {
   const isOn = active();
-  const t = performance.now() / 420;
-  analyzerColumns.forEach((cells, index) => {
-    const bias = 1 - Math.abs(index - analyzerColumns.length / 2) / analyzerColumns.length;
-    const wave = isOn ? 0.52 + 0.28 * Math.sin(t + index * 0.44) + 0.18 * Math.sin(t * 1.55 + index * 0.71) : 0.12;
-    const lit = Math.round(clamp(wave * bias, 0, 1) * cells.length);
-    cells.forEach((cell, row) => {
-      const isLit = cells.length - 1 - row < lit;
-      const isHigh = isLit && cells.length - 1 - row === lit - 1;
-      cell.classList.toggle("lit", isLit);
-      cell.classList.toggle("hi", isHigh);
-    });
-  });
+  const t = performance.now() / 620;
+  animateBarSet(analyzerColumns, analyzerLevels, t, isOn, 0.08);
+  animateBarSet(barVisualizerColumns, barVisualizerLevels, t * 0.9, isOn, 0.18);
   requestAnimationFrame(animateAnalyzer);
+}
+
+function pulseDurationControl() {
+  if (!els.durationControl) return;
+  clearTimeout(durationPulseTimer);
+  els.durationControl.classList.remove("needs-length");
+  void els.durationControl.offsetWidth;
+  els.durationControl.classList.add("needs-length");
+  durationPulseTimer = setTimeout(() => {
+    els.durationControl?.classList.remove("needs-length");
+  }, 900);
 }
 
 function updateStation(id, patch) {
@@ -743,6 +806,7 @@ function render() {
   const displayStatus =
     isOn ? "ON AIR" : state.playerState === "failed" ? "ERROR" : state.playerState === "complete" ? "COMPLETE" : "STANDBY";
   const statusLabel = state.playerText.length > 22 ? `${state.playerText.slice(0, 21)}...` : state.playerText;
+  const hasLength = state.durationSec > 0;
 
   els.stationName.textContent = station ? (lock.tuned ? station.name : `${state.freqMHz.toFixed(1)} FM`) : "NO VIBES";
   els.screenStatus.textContent = displayStatus;
@@ -755,6 +819,8 @@ function render() {
   els.playButton.classList.toggle("active", isOn);
   els.powerLed.classList.toggle("on", isOn);
   els.statusLamp.classList.toggle("on", isOn);
+  els.durationLamp.classList.toggle("ready", hasLength);
+  els.durationLamp.classList.toggle("empty", !hasLength);
   document.querySelectorAll(".glow").forEach((glow) => glow.classList.toggle("on", isOn));
 
   renderTunerStations(lock.tuned ? station : null);
@@ -802,6 +868,11 @@ function finishPlayback(label = "PLAYBACK COMPLETE") {
 async function startEpisode() {
   if (active()) {
     await stopPlayback();
+    return;
+  }
+  if (state.durationSec <= 0) {
+    pulseDurationControl();
+    setPlayer("idle", "SET LENGTH");
     return;
   }
   const lock = closestStation();
@@ -1074,9 +1145,12 @@ function wireSettings() {
 }
 
 function fitDevice() {
-  const width = Math.max(window.innerWidth - 56, 120);
-  const height = Math.max(window.innerHeight - 80, 120);
-  const scale = Math.max(0.46, Math.min(width / 920, height / 650, 1.55));
+  const edgeGap = window.innerWidth > 720 ? 12 : 28;
+  const radioWidth = els.device?.offsetWidth || 920;
+  const radioHeight = (els.device?.offsetHeight || 548) + 44;
+  const width = Math.max(window.innerWidth - edgeGap * 2, 120);
+  const height = Math.max(window.innerHeight - edgeGap * 2, 120);
+  const scale = Math.max(0.46, Math.min(width / radioWidth, height / radioHeight, 1.55));
   document.documentElement.style.setProperty("--device-scale", scale.toFixed(3));
 }
 
@@ -1087,8 +1161,10 @@ function boot() {
     "grilleArea",
     "settingsDrawer",
     "grillePanel",
+    "durationControl",
     "durationDial",
     "durationValue",
+    "durationLamp",
     "mainDisplay",
     "analyzer",
     "screenStatus",
@@ -1101,6 +1177,7 @@ function boot() {
     "tunerStations",
     "frequencyDial",
     "freqValue",
+    "barVisualizer",
     "playButton",
     "statusLamp",
     "topStatus",
@@ -1131,14 +1208,11 @@ function boot() {
   try {
     const storedVolume = localStorage.getItem("vibefm.volume");
     const storedMode = localStorage.getItem("vibefm.mode");
-    const storedDuration = localStorage.getItem("vibefm.durationSec");
     const storedApi = localStorage.getItem("vibefm.apiBase");
     if (storedVolume != null) state.volume = Math.round(clamp(Number(storedVolume) || state.volume, 0, 100));
     if (storedMode) state.mode = storedMode === "real" ? "real" : "mock";
-    if (storedDuration) {
-      state.durationSec = Math.round(clamp((Number(storedDuration) || state.durationSec) / 60, DURATION_MIN, DURATION_MAX)) * 60;
-    }
     if (storedApi) state.apiBase = storedApi;
+    localStorage.removeItem("vibefm.durationSec");
   } catch {}
 
   frequencyDial = bindDial(els.frequencyDial, {
@@ -1165,10 +1239,12 @@ function boot() {
   wireSettings();
   buildTuner();
   buildAnalyzer();
+  buildBarVisualizer();
   fitDevice();
   window.addEventListener("resize", () => {
     fitDevice();
     buildAnalyzer();
+    buildBarVisualizer();
   });
   render();
   startTimer();
