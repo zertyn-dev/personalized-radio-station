@@ -632,6 +632,38 @@
               </div>
             </details>
           </section>
+
+          <section class="mt-3 grid gap-3 lg:grid-cols-2">
+            <details class="panel p-3">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span class="label">API Keys</span>
+                <span id="keysSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70">none saved</span>
+              </summary>
+              <div class="mt-3 grid gap-3">
+                <p class="m-0 text-[0.68rem] text-[#342817]/70">Keys stay in your browser. Sent per-request, never stored on the server.</p>
+                <label class="grid gap-1">
+                  <span class="label">OpenRouter</span>
+                  <input id="keyOpenRouter" class="input min-h-10 px-3 py-2 font-mono text-sm" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-..." />
+                </label>
+                <label class="grid gap-1">
+                  <span class="label">ElevenLabs</span>
+                  <input id="keyElevenLabs" class="input min-h-10 px-3 py-2 font-mono text-sm" type="password" autocomplete="off" spellcheck="false" placeholder="sk_..." />
+                </label>
+              </div>
+            </details>
+
+            <details class="panel p-3">
+              <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
+                <span class="label">Stations</span>
+                <span id="stationsSummary" class="truncate font-mono text-[0.68rem] text-[#342817]/70"></span>
+              </summary>
+              <div id="stationsEditor" class="mt-3 grid gap-2"></div>
+              <div class="mt-2 grid grid-cols-2 gap-2">
+                <button id="addStation" type="button" class="button min-h-10 px-3 py-2 font-mono text-xs font-semibold">+ ADD</button>
+                <button id="resetStations" type="button" class="button min-h-10 px-3 py-2 font-mono text-xs font-semibold">RESET</button>
+              </div>
+            </details>
+          </section>
         </div>
       </section>
     </main>
@@ -644,6 +676,11 @@
       const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
       const pad = (n) => String(Math.floor(n)).padStart(2, "0");
       const pad2 = (n) => String(n).padStart(2, "0");
+
+      const KEY_ENV_NAMES = {
+        openrouter: "OPENROUTER_API_KEY",
+        elevenlabs: "ELEVENLABS_API_KEY",
+      };
 
       const fallbackStations = [
         ["DEEP FOCUS", "ambient lab loops", 88.3, "Pavilion 04 - Lake Theta"],
@@ -668,6 +705,69 @@
         tracks: [track],
       }));
 
+      function loadStoredKeys() {
+        const out = { openrouter: "", elevenlabs: "" };
+        try {
+          out.openrouter = localStorage.getItem("vibefm.keys.openrouter") || "";
+          out.elevenlabs = localStorage.getItem("vibefm.keys.elevenlabs") || "";
+        } catch {}
+        return out;
+      }
+
+      function persistKey(name, value) {
+        try {
+          if (value) localStorage.setItem(`vibefm.keys.${name}`, value);
+          else localStorage.removeItem(`vibefm.keys.${name}`);
+        } catch {}
+      }
+
+      function buildApiKeys() {
+        const out = {};
+        for (const [name, env] of Object.entries(KEY_ENV_NAMES)) {
+          const value = (state.keys[name] || "").trim();
+          if (value) out[env] = value;
+        }
+        return out;
+      }
+
+      function loadStoredStations() {
+        try {
+          const raw = localStorage.getItem("vibefm.stations");
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.length === 0) return null;
+          return parsed.map((s, i) => ({
+            id: s.id || i + 1,
+            backendId: null,
+            name: String(s.name || "STATION").toUpperCase(),
+            tag: s.tag || "custom",
+            mhz: clamp(Number(s.mhz) || 99.0, FREQ_MIN, FREQ_MAX),
+            hosts: 1,
+            voiceA: "F",
+            voiceB: "M",
+            tone: 25,
+            urls: Array.isArray(s.urls) ? s.urls : [],
+            sourcePresetIds: [],
+            tracks: ["custom"],
+          }));
+        } catch {
+          return null;
+        }
+      }
+
+      function persistStations() {
+        try {
+          const slim = state.stations.map((s) => ({
+            id: s.id,
+            name: s.name,
+            tag: s.tag,
+            mhz: s.mhz,
+            urls: s.urls || [],
+          }));
+          localStorage.setItem("vibefm.stations", JSON.stringify(slim));
+        } catch {}
+      }
+
       const state = {
         freqMHz: fallbackStations[0].mhz,
         volume: 72,
@@ -681,6 +781,7 @@
         segmentProgress: { queued: 0, played: 0, total: 0 },
         generationComplete: false,
         stations: fallbackStations,
+        keys: { openrouter: "", elevenlabs: "" },
       };
 
       const playback = {
@@ -1099,10 +1200,13 @@
           await playback.audioContext.resume();
           playback.nextStartTime = playback.audioContext.currentTime + 0.18;
 
+          const apiKeys = buildApiKeys();
+          const payload = episodePayloadFromStation(station);
+          if (Object.keys(apiKeys).length > 0) payload.api_keys = apiKeys;
           const { data: job, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/episodes", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(episodePayloadFromStation(station)),
+            body: JSON.stringify(payload),
           });
           if (!isCurrentRun(runId)) return;
           state.apiBase = apiBase;
@@ -1201,7 +1305,7 @@
           state.apiBase = apiBase;
           els.apiBaseInput.value = apiBase;
           const saved = Array.isArray(data.vibes) ? data.vibes.map(stationFromVibe) : [];
-          if (saved.length > 0) {
+          if (saved.length > 0 && !loadStoredStations()) {
             state.stations = saved;
             state.freqMHz = saved[0].mhz;
             frequencyDial?.setValue(state.freqMHz, false);
@@ -1211,6 +1315,71 @@
           state.apiStatus = "offline";
         }
         render();
+      }
+
+      function renderKeysSummary() {
+        if (!els.keysSummary) return;
+        const count = Object.keys(buildApiKeys()).length;
+        els.keysSummary.textContent = count === 0 ? "none saved" : `${count} of 2 saved`;
+      }
+
+      function renderStationsEditor() {
+        if (!els.stationsEditor) return;
+        els.stationsEditor.innerHTML = "";
+        state.stations.forEach((station, idx) => {
+          const row = document.createElement("div");
+          row.className = "grid gap-2 items-center";
+          row.style.gridTemplateColumns = "1fr 72px auto";
+          const nameInput = document.createElement("input");
+          nameInput.className = "input min-h-10 px-2 py-1 text-sm";
+          nameInput.type = "text";
+          nameInput.value = station.name;
+          nameInput.maxLength = 32;
+          nameInput.addEventListener("change", () => {
+            state.stations[idx] = { ...station, name: nameInput.value.toUpperCase() || station.name };
+            persistStations();
+            renderStationsEditor();
+            render();
+          });
+          const mhzInput = document.createElement("input");
+          mhzInput.className = "input min-h-10 px-2 py-1 font-mono text-sm text-right";
+          mhzInput.type = "number";
+          mhzInput.step = "0.1";
+          mhzInput.min = String(FREQ_MIN);
+          mhzInput.max = String(FREQ_MAX);
+          mhzInput.value = String(station.mhz);
+          mhzInput.addEventListener("change", () => {
+            const next = clamp(Number(mhzInput.value) || station.mhz, FREQ_MIN, FREQ_MAX);
+            state.stations[idx] = { ...station, mhz: Math.round(next * 10) / 10 };
+            persistStations();
+            renderStationsEditor();
+            render();
+          });
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "button min-h-10 px-3 font-mono text-xs font-semibold";
+          remove.textContent = "×";
+          remove.title = "Remove station";
+          remove.addEventListener("click", () => {
+            state.stations = state.stations.filter((_, i) => i !== idx);
+            if (state.stations.length === 0) state.stations = fallbackStations.slice(0, 1);
+            persistStations();
+            renderStationsEditor();
+            render();
+          });
+          row.append(nameInput, mhzInput, remove);
+          els.stationsEditor.appendChild(row);
+        });
+        if (els.stationsSummary) els.stationsSummary.textContent = `${state.stations.length} station${state.stations.length === 1 ? "" : "s"}`;
+      }
+
+      function nextFreeFrequency() {
+        const used = new Set(state.stations.map((s) => Math.round(s.mhz * 10)));
+        for (let f = FREQ_MIN; f <= FREQ_MAX; f += 0.1) {
+          const key = Math.round(f * 10);
+          if (!used.has(key)) return Math.round(f * 10) / 10;
+        }
+        return 99.0;
       }
 
       function boot() {
@@ -1246,6 +1415,13 @@
           "modeMock",
           "modeReal",
           "durationSelect",
+          "keysSummary",
+          "keyOpenRouter",
+          "keyElevenLabs",
+          "stationsSummary",
+          "stationsEditor",
+          "addStation",
+          "resetStations",
         ].forEach((id) => {
           els[id] = document.getElementById(id);
         });
@@ -1260,6 +1436,13 @@
           if (storedDuration) state.durationSec = Number(storedDuration) || state.durationSec;
           if (storedApi) state.apiBase = storedApi;
         } catch {}
+
+        state.keys = loadStoredKeys();
+        const storedStations = loadStoredStations();
+        if (storedStations) {
+          state.stations = storedStations;
+          state.freqMHz = storedStations[0].mhz;
+        }
 
         tickMarks(els.frequencyDialWrap);
         tickMarks(els.volumeDialWrap);
@@ -1318,9 +1501,63 @@
           apiCheckTimer = setTimeout(checkApi, 350);
           render();
         });
+
+        if (els.keyOpenRouter) {
+          els.keyOpenRouter.value = state.keys.openrouter;
+          els.keyOpenRouter.addEventListener("input", () => {
+            state.keys.openrouter = els.keyOpenRouter.value.trim();
+            persistKey("openrouter", state.keys.openrouter);
+            renderKeysSummary();
+          });
+        }
+        if (els.keyElevenLabs) {
+          els.keyElevenLabs.value = state.keys.elevenlabs;
+          els.keyElevenLabs.addEventListener("input", () => {
+            state.keys.elevenlabs = els.keyElevenLabs.value.trim();
+            persistKey("elevenlabs", state.keys.elevenlabs);
+            renderKeysSummary();
+          });
+        }
+        if (els.addStation) {
+          els.addStation.addEventListener("click", () => {
+            state.stations = [
+              ...state.stations,
+              {
+                id: Date.now(),
+                backendId: null,
+                name: "NEW STATION",
+                tag: "custom",
+                mhz: nextFreeFrequency(),
+                hosts: 1,
+                voiceA: "F",
+                voiceB: "M",
+                tone: 25,
+                urls: [],
+                sourcePresetIds: [],
+                tracks: ["custom"],
+              },
+            ];
+            persistStations();
+            renderStationsEditor();
+            render();
+          });
+        }
+        if (els.resetStations) {
+          els.resetStations.addEventListener("click", () => {
+            try { localStorage.removeItem("vibefm.stations"); } catch {}
+            state.stations = fallbackStations;
+            state.freqMHz = fallbackStations[0].mhz;
+            frequencyDial?.setValue(state.freqMHz, false);
+            renderStationsEditor();
+            render();
+          });
+        }
+
         window.addEventListener("resize", buildAnalyzer);
         buildAnalyzer();
         render();
+        renderKeysSummary();
+        renderStationsEditor();
         startTimer();
         requestAnimationFrame(animateAnalyzer);
         checkApi();
