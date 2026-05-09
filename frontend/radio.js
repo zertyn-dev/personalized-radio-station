@@ -73,6 +73,8 @@ let frequencyDial;
 let durationDial;
 let analyzerColumns = [];
 let barVisualizerColumns = [];
+let analyzerLevels = [];
+let barVisualizerLevels = [];
 let apiCheckTimer = null;
 let tunerDragging = false;
 let durationPulseTimer = null;
@@ -466,6 +468,7 @@ function buildAnalyzer() {
   els.analyzer.classList.add("analyzer");
   els.analyzer.innerHTML = "";
   const columns = window.matchMedia("(max-width: 540px)").matches ? 20 : 28;
+  analyzerLevels = new Array(columns).fill(0);
   analyzerColumns = [];
   for (let i = 0; i < columns; i += 1) {
     const col = document.createElement("span");
@@ -486,12 +489,13 @@ function buildBarVisualizer() {
   if (!els.barVisualizer) return;
   els.barVisualizer.innerHTML = "";
   const columns = window.matchMedia("(max-width: 540px)").matches ? 28 : 42;
+  barVisualizerLevels = new Array(columns).fill(0);
   barVisualizerColumns = [];
   for (let i = 0; i < columns; i += 1) {
     const col = document.createElement("span");
     col.className = "an-col";
     const cells = [];
-    for (let row = 0; row < 10; row += 1) {
+    for (let row = 0; row < 12; row += 1) {
       const cell = document.createElement("span");
       cell.className = "an-cell";
       cells.push(cell);
@@ -502,27 +506,49 @@ function buildBarVisualizer() {
   }
 }
 
-function animateBarSet(columns, t, isOn, idleLevel) {
+function targetBarLevel(index, totalColumns, t, isOn, idleLevel) {
+  const midpoint = (totalColumns - 1) / 2;
+  const distanceFromCenter = Math.abs(index - midpoint) / Math.max(1, midpoint);
+  const bias = 0.54 + (1 - distanceFromCenter) * 0.46;
+  if (!isOn) return idleLevel * bias;
+  const wave =
+    0.48 +
+    0.22 * Math.sin(t + index * 0.31) +
+    0.16 * Math.sin(t * 1.42 + index * 0.57 + 1.2) +
+    0.08 * Math.sin(t * 0.64 - index * 0.2 + 2.4);
+  return clamp(wave * bias, 0.04, 0.98);
+}
+
+function paintBarCells(cells, level) {
+  const litHeight = level * cells.length;
+  cells.forEach((cell, row) => {
+    const fromBottom = cells.length - 1 - row;
+    const alpha = clamp((litHeight - fromBottom) * 0.76, 0, 1);
+    const onLeadingEdge = alpha > 0.12 && fromBottom > litHeight - 1.36;
+    cell.style.setProperty("--cell-alpha", alpha.toFixed(3));
+    cell.style.setProperty("--cell-scale", (0.42 + alpha * 0.58).toFixed(3));
+    cell.classList.toggle("lit", alpha > 0.07);
+    cell.classList.toggle("hi", onLeadingEdge && level > 0.22);
+  });
+}
+
+function animateBarSet(columns, levels, t, isOn, idleLevel) {
+  if (levels.length !== columns.length) levels.splice(0, levels.length, ...new Array(columns.length).fill(0));
   columns.forEach((cells, index) => {
-    const bias = 1 - Math.abs(index - columns.length / 2) / columns.length;
-    const wave = isOn
-      ? 0.52 + 0.28 * Math.sin(t + index * 0.44) + 0.18 * Math.sin(t * 1.55 + index * 0.71)
-      : idleLevel;
-    const lit = Math.round(clamp(wave * bias, 0, 1) * cells.length);
-    cells.forEach((cell, row) => {
-      const isLit = cells.length - 1 - row < lit;
-      const isHigh = isLit && cells.length - 1 - row === lit - 1;
-      cell.classList.toggle("lit", isLit);
-      cell.classList.toggle("hi", isHigh);
-    });
+    const current = levels[index] || 0;
+    const target = targetBarLevel(index, columns.length, t, isOn, idleLevel);
+    const easing = target > current ? 0.18 : 0.1;
+    const next = current + (target - current) * easing;
+    levels[index] = next;
+    paintBarCells(cells, next);
   });
 }
 
 function animateAnalyzer() {
   const isOn = active();
-  const t = performance.now() / 420;
-  animateBarSet(analyzerColumns, t, isOn, 0.08);
-  animateBarSet(barVisualizerColumns, t * 0.86, isOn, 0.16);
+  const t = performance.now() / 620;
+  animateBarSet(analyzerColumns, analyzerLevels, t, isOn, 0.08);
+  animateBarSet(barVisualizerColumns, barVisualizerLevels, t * 0.9, isOn, 0.18);
   requestAnimationFrame(animateAnalyzer);
 }
 
