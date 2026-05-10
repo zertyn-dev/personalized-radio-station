@@ -150,6 +150,12 @@ class EpisodeService:
         self._io_executor = ThreadPoolExecutor(
             max_workers=8, thread_name_prefix="vibefm-io"
         )
+        # Per-segment TTS workers. ElevenLabs handles parallel calls fine,
+        # 4 is enough to absorb a typical 5-7-segment episode without
+        # piling up against rate limits.
+        self._tts_executor = ThreadPoolExecutor(
+            max_workers=4, thread_name_prefix="vibefm-tts"
+        )
 
     def create_episode(self, payload: dict[str, Any]) -> EpisodeJob:
         api_keys = _extract_api_keys(payload)
@@ -296,59 +302,87 @@ class EpisodeService:
                 )
 
             # Stream the LLM output. Each complete segment kicks off TTS
-            # and emits segment_ready immediately, so the listener hears
-            # the first news beat shortly after the intro instead of
-            # waiting for the entire script to finish.
+            # in parallel via a worker pool and is emitted in stream
+            # order as soon as its TTS finishes — so segment 2's audio
+            # renders while segment 1's audio is still being rendered.
+            # First-segment latency is bounded by max(LLM, single-TTS),
+            # not their sum; subsequent segments slot in seamlessly.
             provider = config.tts.provider.lower()
             extension = (
                 _extension_for_provider(provider, config.tts.response_format)
                 if config.tts.enabled
                 else "wav"
             )
+
+            def render_one(text, voice_obj, segment_path):
+                if provider == "mock":
+                    _synthesize_mock(text, voice_obj.voice, segment_path)
+                elif provider in {"elevenlabs", "litellm", "openai"}:
+                    _synthesize_litellm_speech(
+                        text, voice_obj, config, segment_path, api_keys
+                    )
+                elif provider == "piper":
+                    _synthesize_piper(text, voice_obj, config, segment_path)
+                else:
+                    raise ValueError(f"Unsupported TTS provider: {config.tts.provider}")
+                return segment_path
+
+            from collections import deque
+
             body_segments: list[dict[str, Any]] = []
             body_files: list[Path] = []
-            for offset, segment in enumerate(
-                stream_script_segments(news_items, weather, config, api_keys=api_keys)
+            pending: deque = deque()  # (abs_idx, segment, future, segment_path)
+
+            def emit_ready(absolute_index, segment, segment_path):
+                segment["audio_file"] = str(segment_path.relative_to(job.output_dir))
+                body_files.append(segment_path)
+                with job.condition:
+                    job.segments.append(
+                        {
+                            "index": absolute_index,
+                            "type": str(segment.get("type", "segment")),
+                            "title": str(segment.get("type", "segment")).title(),
+                            "status": "pending",
+                        }
+                    )
+                self._mark_segment_ready(job, absolute_index, segment, segment_path)
+                body_segments.append(segment)
+
+            body_count = 0
+            for segment in stream_script_segments(
+                news_items, weather, config, api_keys=api_keys
             ):
                 text = str(segment.get("text", "")).strip()
                 if not text:
                     continue
-                absolute_index = len(fragment_segments) + len(body_segments)
-                if config.tts.enabled:
-                    voice_name = _voice_name_for_segment(segment, config)
-                    voice_name, voice = _resolve_voice(voice_name, config)
-                    segment["voice"] = voice_name
-                    segment_path = (
-                        audio_dir
-                        / f"{absolute_index:02d}-{_tts_slug(segment.get('type', 'segment'))}.{extension}"
-                    )
-                    if provider == "mock":
-                        _synthesize_mock(text, voice_name, segment_path)
-                    elif provider in {"elevenlabs", "litellm", "openai"}:
-                        _synthesize_litellm_speech(
-                            text, voice, config, segment_path, api_keys
-                        )
-                    elif provider == "piper":
-                        _synthesize_piper(text, voice, config, segment_path)
-                    else:
-                        raise ValueError(
-                            f"Unsupported TTS provider: {config.tts.provider}"
-                        )
-                    segment["audio_file"] = str(
-                        segment_path.relative_to(job.output_dir)
-                    )
-                    body_files.append(segment_path)
-                    with job.condition:
-                        job.segments.append(
-                            {
-                                "index": absolute_index,
-                                "type": str(segment.get("type", "segment")),
-                                "title": str(segment.get("type", "segment")).title(),
-                                "status": "pending",
-                            }
-                        )
-                    self._mark_segment_ready(job, absolute_index, segment, segment_path)
-                body_segments.append(segment)
+                absolute_index = len(fragment_segments) + body_count
+                body_count += 1
+                if not config.tts.enabled:
+                    body_segments.append(segment)
+                    continue
+                voice_name = _voice_name_for_segment(segment, config)
+                voice_name, voice = _resolve_voice(voice_name, config)
+                segment["voice"] = voice_name
+                segment_path = (
+                    audio_dir
+                    / f"{absolute_index:02d}-{_tts_slug(segment.get('type', 'segment'))}.{extension}"
+                )
+                future = self._tts_executor.submit(
+                    render_one, text, voice, segment_path
+                )
+                pending.append((absolute_index, segment, future, segment_path))
+                # Drain any ready-in-order segments before pulling the
+                # next chunk from the LLM stream.
+                while pending and pending[0][2].done():
+                    abs_idx, seg, fut, path = pending.popleft()
+                    fut.result()  # propagate any TTS error
+                    emit_ready(abs_idx, seg, path)
+
+            # Stream ended; drain remaining TTS futures in order.
+            while pending:
+                abs_idx, seg, fut, path = pending.popleft()
+                fut.result()
+                emit_ready(abs_idx, seg, path)
 
             episode = {
                 "title": "VibeFM",

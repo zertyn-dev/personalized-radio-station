@@ -15,7 +15,11 @@ weather:
   longitude: -9.1393
 
 ai:
-  model: "openrouter/openai/gpt-oss-120b:nitro"
+  # Anthropic/OpenAI/Google-hosted models on OpenRouter have much lower
+  # TTFT (~0.3s) than gpt-oss-*:nitro (1-3s, third-party hosted), which
+  # is the dominant cost in time-to-first-news. Swap freely if cost or
+  # quality preferences shift.
+  model: "openrouter/anthropic/claude-3.5-haiku"
   api_key_env: "OPENROUTER_API_KEY"
   temperature: 0.7
   max_tokens: 4000
