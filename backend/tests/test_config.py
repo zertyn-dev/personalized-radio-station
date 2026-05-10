@@ -25,9 +25,7 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn("\nduration:", example_text)
         self.assertNotIn("topics:", example_text)
         self.assertNotIn("rss_feeds:", example_text)
-        self.assertEqual(
-            config.ai.model, "openrouter/openai/gpt-oss-safeguard-20b:nitro"
-        )
+        self.assertEqual(config.ai.model, "openrouter/openai/gpt-oss-20b:nitro")
         self.assertEqual(config.ai.api_key_env, "OPENROUTER_API_KEY")
         self.assertEqual(config.ai.max_tokens, 4000)
         self.assertEqual(config.ai.reasoning, {"effort": "low", "exclude": True})
