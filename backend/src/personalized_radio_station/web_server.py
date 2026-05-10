@@ -37,12 +37,22 @@ from .news import (
     normalize_feed_url as _normalize_feed_url,
 )
 from .runtime import assert_runtime_ready
-from .script import generate_script, render_markdown
+from .script import generate_script, render_markdown, stream_script_segments
 from .timing import add_audio_timing, count_episode_words, episode_timing_metadata
-from .tts import synthesize_episode
+from .tts import (
+    _extension_for_provider,
+    _resolve_voice,
+    _slug as _tts_slug,
+    _synthesize_litellm_speech,
+    _synthesize_mock,
+    _synthesize_piper,
+    _voice_name_for_segment,
+    synthesize_episode,
+)
 from .vibes import Vibe, VibeStore
 from .weather import fetch_weather
 
+from concurrent.futures import ThreadPoolExecutor
 import random
 
 
@@ -135,6 +145,11 @@ class EpisodeService:
         self.demo_delay = demo_delay
         self._jobs: dict[str, EpisodeJob] = {}
         self._lock = threading.Lock()
+        # Used for parallel I/O within a single episode (weather + news).
+        # Not bounded per-episode because each job uses ~2 short-lived tasks.
+        self._io_executor = ThreadPoolExecutor(
+            max_workers=8, thread_name_prefix="vibefm-io"
+        )
 
     def create_episode(self, payload: dict[str, Any]) -> EpisodeJob:
         api_keys = _extract_api_keys(payload)
@@ -206,22 +221,21 @@ class EpisodeService:
             audio_dir = job.output_dir / "audio"
             audio_dir.mkdir(parents=True, exist_ok=True)
 
-            # Pre-rendered fragments: pick + render (or fetch from cache) the
-            # intro and one bridge filler. These play immediately so the
-            # listener hears voice within ~1-2s instead of waiting for the
-            # full LLM/TTS pipeline. If rendering fails (invalid TTS key,
-            # rate limit, etc.) we log and continue without fragments — the
-            # episode still produces from the LLM body.
+            # Parallel: weather + news fetch. Intro fragment (which depends
+            # on weather.time_of_day) renders inline once weather is back,
+            # while news fetch keeps running in the background.
+            weather_future = self._io_executor.submit(fetch_weather, config.weather)
+            news_future = self._io_executor.submit(fetch_news, config.news)
+
             fragment_files: list[Path] = []
             fragment_segments: list[dict[str, Any]] = []
-            weather_for_intro = None
+            weather = weather_future.result()
             if config.tts.enabled:
                 self._set_status(job, "rendering_intro", "Rolling the opening")
                 try:
-                    weather_for_intro = fetch_weather(config.weather)
                     fragments = prepare_fragment_segments(
                         config=config,
-                        time_of_day=weather_for_intro.time_of_day,
+                        time_of_day=weather.time_of_day,
                         api_keys=api_keys,
                         cache_dir=self.output_dir.parent / "fragments",
                         audio_dir=audio_dir,
@@ -231,7 +245,6 @@ class EpisodeService:
                     fragment_segments = [seg for seg, _ in fragments]
                     fragment_files = [path for _, path in fragments]
 
-                    # Seed job.segments so _mark_segment_ready can reference them.
                     with job.condition:
                         job.title = "VibeFM"
                         job.segments = [
@@ -243,11 +256,9 @@ class EpisodeService:
                             }
                             for index, seg in enumerate(fragment_segments)
                         ]
-                    # Stream fragments to the listener in order.
                     for index, (segment, path) in enumerate(fragments):
                         self._mark_segment_ready(job, index, segment, path)
-                except Exception as fragment_error:
-                    # Log but continue — don't block the episode on fragments.
+                except Exception as fragment_error:  # pragma: no cover
                     print(
                         f"[vibefm] fragment rendering failed, continuing without: {fragment_error}",
                         flush=True,
@@ -255,20 +266,12 @@ class EpisodeService:
                     fragment_files = []
                     fragment_segments = []
 
-            # Now the slow part — news + LLM — runs while the listener is
-            # already hearing audio.
             self._set_status(
                 job,
                 "fetching_sources",
                 f"Fetching sources: {describe_news_sources(config.news)}",
             )
-            news_items = fetch_news(config.news)
-            # Reuse the weather we already fetched for the intro when present.
-            weather = (
-                weather_for_intro
-                if config.tts.enabled
-                else fetch_weather(config.weather)
-            )
+            news_items = news_future.result()
             (job.output_dir / "sources.json").write_text(
                 json.dumps(
                     {
@@ -285,33 +288,74 @@ class EpisodeService:
             self._set_status(
                 job, "generating_script", f"Generating script with {config.ai.model}"
             )
-            body_episode = generate_script(
-                news_items, weather, config, api_keys=api_keys
+            if config.tts.enabled:
+                self._set_status(
+                    job,
+                    "rendering_audio",
+                    f"Rendering audio with {config.tts.provider}: {config.tts.model}",
+                )
+
+            # Stream the LLM output. Each complete segment kicks off TTS
+            # and emits segment_ready immediately, so the listener hears
+            # the first news beat shortly after the intro instead of
+            # waiting for the entire script to finish.
+            provider = config.tts.provider.lower()
+            extension = (
+                _extension_for_provider(provider, config.tts.response_format)
+                if config.tts.enabled
+                else "wav"
             )
-            body_segments = body_episode.get("segments", [])
+            body_segments: list[dict[str, Any]] = []
+            body_files: list[Path] = []
+            for offset, segment in enumerate(
+                stream_script_segments(news_items, weather, config, api_keys=api_keys)
+            ):
+                text = str(segment.get("text", "")).strip()
+                if not text:
+                    continue
+                absolute_index = len(fragment_segments) + len(body_segments)
+                if config.tts.enabled:
+                    voice_name = _voice_name_for_segment(segment, config)
+                    voice_name, voice = _resolve_voice(voice_name, config)
+                    segment["voice"] = voice_name
+                    segment_path = (
+                        audio_dir
+                        / f"{absolute_index:02d}-{_tts_slug(segment.get('type', 'segment'))}.{extension}"
+                    )
+                    if provider == "mock":
+                        _synthesize_mock(text, voice_name, segment_path)
+                    elif provider in {"elevenlabs", "litellm", "openai"}:
+                        _synthesize_litellm_speech(
+                            text, voice, config, segment_path, api_keys
+                        )
+                    elif provider == "piper":
+                        _synthesize_piper(text, voice, config, segment_path)
+                    else:
+                        raise ValueError(
+                            f"Unsupported TTS provider: {config.tts.provider}"
+                        )
+                    segment["audio_file"] = str(
+                        segment_path.relative_to(job.output_dir)
+                    )
+                    body_files.append(segment_path)
+                    with job.condition:
+                        job.segments.append(
+                            {
+                                "index": absolute_index,
+                                "type": str(segment.get("type", "segment")),
+                                "title": str(segment.get("type", "segment")).title(),
+                                "status": "pending",
+                            }
+                        )
+                    self._mark_segment_ready(job, absolute_index, segment, segment_path)
+                body_segments.append(segment)
+
             episode = {
-                **body_episode,
-                "title": body_episode.get("title", "VibeFM"),
+                "title": "VibeFM",
                 "segments": [*fragment_segments, *body_segments],
             }
             script_words = count_episode_words(episode)
             episode["timing"] = episode_timing_metadata(config, script_words)
-            # Append body segments to job.segments WITHOUT touching the
-            # fragments that are already marked ready — re-marking them
-            # would re-emit segment_ready and cause the frontend to queue
-            # the same audio twice.
-            with job.condition:
-                job.title = str(episode.get("title") or job.title)
-                base = len(job.segments)
-                for offset, segment in enumerate(body_segments):
-                    job.segments.append(
-                        {
-                            "index": base + offset,
-                            "type": str(segment.get("type", "segment")),
-                            "title": str(segment.get("type", "segment")).title(),
-                            "status": "pending",
-                        }
-                    )
             (job.output_dir / "episode.json").write_text(
                 json.dumps(episode, indent=2) + "\n"
             )
@@ -326,24 +370,7 @@ class EpisodeService:
             )
 
             if config.tts.enabled:
-                self._set_status(
-                    job,
-                    "rendering_audio",
-                    f"Rendering audio with {config.tts.provider}: {config.tts.model}",
-                )
-                body_only = {"segments": body_segments}
-                body_result = synthesize_episode(
-                    body_only,
-                    config,
-                    job.output_dir,
-                    on_segment_ready=lambda index, segment, path: (
-                        self._mark_segment_ready(job, index, segment, path)
-                    ),
-                    api_keys=api_keys,
-                    start_index=len(fragment_segments),
-                    concat_final=False,
-                )
-                all_files = [*fragment_files, *body_result.segment_files]
+                all_files = [*fragment_files, *body_files]
                 final_audio: Path | None = None
                 if all_files:
                     if all(path.suffix == ".wav" for path in all_files):

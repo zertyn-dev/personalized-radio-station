@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 
-from .ai import generate_text
+from .ai import generate_text, stream_text
 from .config import AppConfig
 from .news import NewsItem
 from .timing import count_episode_words, effective_words_per_minute, word_budget
@@ -11,6 +11,101 @@ from .weather import WeatherReport
 
 
 ApiKeys = dict[str, str]
+
+
+def stream_script_segments(
+    news_items: list[NewsItem],
+    weather: WeatherReport,
+    config: AppConfig,
+    api_keys: ApiKeys | None = None,
+):
+    """Yield segment dicts as they appear in the streaming LLM output.
+
+    Uses an incremental JSON parser: as soon as a `{ ... }` segment object
+    inside the `segments` array becomes complete in the streamed buffer,
+    it's yielded. Callers can start TTS for that segment while the LLM
+    continues writing the remaining segments.
+
+    Falls back to a single full-buffer parse if the LLM never emits a
+    well-formed array (e.g. small models that return a code-fenced JSON
+    blob).
+    """
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a radio producer writing spoken-word scripts. "
+                "Ground every substantive claim in the provided news and weather context. "
+                "Return valid JSON only."
+            ),
+        },
+        {
+            "role": "user",
+            "content": _build_prompt(news_items, weather, config),
+        },
+    ]
+
+    decoder = json.JSONDecoder()
+    buffer = ""
+    array_pos = -1
+    parse_pos = 0
+    yielded = 0
+
+    for chunk in stream_text(messages, config.ai, api_keys):
+        buffer += chunk
+
+        if array_pos < 0:
+            seg_idx = buffer.find('"segments"')
+            if seg_idx < 0:
+                continue
+            bracket_idx = buffer.find("[", seg_idx)
+            if bracket_idx < 0:
+                continue
+            array_pos = bracket_idx + 1
+            parse_pos = array_pos
+
+        # Drain as many complete segment objects as possible.
+        while parse_pos < len(buffer):
+            while parse_pos < len(buffer) and buffer[parse_pos] in " \t\n\r,":
+                parse_pos += 1
+            if parse_pos >= len(buffer):
+                break
+            if buffer[parse_pos] == "]":
+                return
+            try:
+                obj, end = decoder.raw_decode(buffer, parse_pos)
+            except json.JSONDecodeError:
+                break  # incomplete; wait for next chunk
+            parse_pos = end
+            yielded += 1
+            yield obj
+
+    # Stream ended without giving us segments via the incremental path.
+    # Try one last fallback parse on the full buffer (handles code fences,
+    # mock providers that yield the full JSON in one chunk, etc.).
+    if yielded == 0:
+        text = buffer.strip()
+        if text.startswith("```"):
+            inner = text.split("```", 2)
+            if len(inner) >= 2:
+                text = inner[1]
+                if text.startswith("json"):
+                    text = text[4:]
+        text = text.strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start >= 0 and end > start:
+                try:
+                    data = json.loads(text[start : end + 1])
+                except json.JSONDecodeError:
+                    return
+            else:
+                return
+        for segment in data.get("segments", []):
+            yield segment
 
 
 def generate_script(

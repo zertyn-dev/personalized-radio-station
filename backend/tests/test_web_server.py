@@ -142,13 +142,14 @@ tts:
                 wind_speed_kmh=8.0,
                 weather_code=1,
             )
-            episode = {
-                "title": "Real Mode Test",
-                "segments": [
-                    {"type": "intro", "voice": "host", "text": "Real intro."},
-                    {"type": "news", "voice": "host", "text": "Real source item."},
-                ],
-            }
+            streamed_segments = [
+                {"type": "intro", "voice": "host", "text": "Real intro."},
+                {"type": "news", "voice": "host", "text": "Real source item."},
+            ]
+
+            def fake_stream(*_args, **_kwargs):
+                for segment in streamed_segments:
+                    yield segment
 
             try:
                 with (
@@ -164,8 +165,8 @@ tts:
                         return_value=weather,
                     ) as weather_mock,
                     patch(
-                        "personalized_radio_station.web_server.generate_script",
-                        return_value=episode,
+                        "personalized_radio_station.web_server.stream_script_segments",
+                        side_effect=fake_stream,
                     ) as script_mock,
                 ):
                     job = _post_json(

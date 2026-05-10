@@ -51,6 +51,56 @@ def generate_text(
     return content
 
 
+def stream_text(
+    messages: list[Message],
+    config: AiConfig,
+    api_keys: ApiKeys | None = None,
+):
+    """Yield text deltas from a streaming LLM completion.
+
+    Falls back to a single yield of the full mock response when the
+    model is `mock`.
+    """
+    if config.model == "mock":
+        yield _mock_completion(messages)
+        return
+
+    try:
+        from litellm import completion
+    except ImportError as exc:
+        raise RuntimeError(
+            "LiteLLM is not installed. From backend/, install dependencies with `uv sync`."
+        ) from exc
+
+    kwargs: dict[str, Any] = {
+        "model": config.model,
+        "messages": messages,
+        "temperature": config.temperature,
+        "stream": True,
+    }
+    if config.api_base:
+        kwargs["api_base"] = config.api_base
+    if config.api_key_env:
+        api_key = _resolve_api_key(config.api_key_env, api_keys)
+        if not api_key:
+            raise RuntimeError(f"Missing {config.api_key_env} for LiteLLM.")
+        kwargs["api_key"] = api_key
+    if config.max_tokens:
+        kwargs["max_tokens"] = config.max_tokens
+    if config.reasoning:
+        _add_reasoning_options(kwargs, config)
+
+    response = completion(**kwargs)
+    for chunk in response:
+        try:
+            delta = chunk.choices[0].delta
+            content = _get_value(delta, "content")
+        except (AttributeError, IndexError, TypeError):
+            content = None
+        if isinstance(content, str) and content:
+            yield content
+
+
 def _resolve_api_key(env_name: str, api_keys: ApiKeys | None) -> str | None:
     if api_keys:
         value = api_keys.get(env_name)
