@@ -227,7 +227,6 @@ class EpisodeService:
                         audio_dir=audio_dir,
                         episode_dir=job.output_dir,
                         rng=random.Random(),
-                        bridge_count=1,
                     )
                     fragment_segments = [seg for seg, _ in fragments]
                     fragment_files = [path for _, path in fragments]

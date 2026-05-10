@@ -205,11 +205,10 @@ tts:
                 status = _get_json(f"{base_url}{job['status_url']}")
                 self.assertEqual(status["mode"], "real")
                 self.assertEqual(status["status"], "complete")
-                # 2 pre-rendered fragments (intro + 1 bridge) prepended
-                # to 2 LLM body segments from the mocked generate_script.
-                self.assertEqual(len(status["segments"]), 4)
+                # 1 pre-rendered intro fragment prepended to 2 LLM body
+                # segments from the mocked generate_script.
+                self.assertEqual(len(status["segments"]), 3)
                 self.assertEqual(status["segments"][0]["type"], "intro")
-                self.assertEqual(status["segments"][1]["type"], "bridge")
                 self.assertTrue(status["audio_url"])
                 self.assertEqual(
                     _get_bytes(f"{base_url}{status['segments'][0]['audio_url']}")[:4],

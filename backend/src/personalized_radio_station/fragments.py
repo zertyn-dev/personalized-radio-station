@@ -39,51 +39,45 @@ from .tts import (
 )
 
 
-# Generic intros, station-name free. Short (1 sentence), TTS-friendly.
+# Intros include the station name via the {station} placeholder. They're
+# rendered to audio AFTER substitution (so the cache key includes the
+# specific station name), giving each station its own pre-rendered
+# welcome — exactly how a real station has a recorded ID.
 INTRO_TEMPLATES: list[str] = [
-    "You're tuned in. Welcome back.",
-    "Glad you're here. Let's roll.",
-    "Settle in — we're rolling.",
-    "Hey there. Welcome back to the show.",
-    "We're back on. Glad you joined.",
-    "Welcome back to the broadcast.",
-    "You're with us. Let's get into it.",
+    "Welcome to {station}.",
+    "Welcome to {station} — glad you're with us.",
+    "You're listening to {station}.",
+    "You're tuned to {station}.",
+    "This is {station}. Good to have you here.",
+    "Welcome back to {station}.",
 ]
 
-# Time-of-day flavored intros. Picked from when weather.time_of_day is set.
+# Time-of-day flavored intros. Picked when weather.time_of_day is set.
 INTRO_BY_TIME: dict[str, list[str]] = {
     "morning": [
-        "Good morning. Glad you joined us.",
-        "Morning, everyone. Let's get going.",
-        "Good morning — settle in.",
+        "Good morning. You're listening to {station}.",
+        "Good morning, and welcome to {station}.",
+        "Morning. This is {station}.",
     ],
     "afternoon": [
-        "Good afternoon. Welcome back to the show.",
-        "Hey there. Good to have you this afternoon.",
-        "Afternoon — glad you're here.",
+        "Good afternoon. You're listening to {station}.",
+        "Good afternoon, and welcome to {station}.",
     ],
     "evening": [
-        "Good evening. Welcome in.",
-        "Evening, all. Glad you joined.",
-        "Good evening — let's roll.",
+        "Good evening. You're listening to {station}.",
+        "Good evening, and welcome to {station}.",
+        "Evening. This is {station}.",
     ],
     "late_night": [
-        "Late-night listener — welcome.",
-        "Glad you joined us tonight.",
-        "Welcome — good to have you up with us.",
+        "Late-night listener — welcome to {station}.",
+        "Welcome to {station}. Glad to have you up with us.",
     ],
 }
 
-# Bridge fillers — short, neutral. Chained between intro and the LLM
-# news body to cover the LLM's generation latency without dead air.
-BRIDGE_TEMPLATES: list[str] = [
-    "Putting tonight's lineup together for you...",
-    "Hang tight, we're queuing up the stories.",
-    "Just a moment — dialing in the latest.",
-    "Setting up the wires. Almost there.",
-    "Pulling the threads — back in a beat.",
-    "Sorting through the wire. Won't be long.",
-]
+# Bridge templates left in place but not used by default. The previous
+# set ('Setting up the wires', etc.) didn't sound like real radio. If we
+# revisit gap-filling later, replace these with naturalistic vamping.
+BRIDGE_TEMPLATES: list[str] = []
 
 
 def _settings_hash(voice: TtsVoiceConfig, model: str) -> str:
@@ -146,20 +140,14 @@ def get_or_render_fragment(
     return path
 
 
-def pick_intro_text(time_of_day: str | None, rng: Random) -> str:
+def pick_intro_text(station_name: str, time_of_day: str | None, rng: Random) -> str:
+    """Pick an intro template and substitute the station name."""
     pool = list(INTRO_TEMPLATES)
     if time_of_day:
         pool.extend(INTRO_BY_TIME.get(time_of_day, []))
-    return rng.choice(pool)
-
-
-def pick_bridge_texts(count: int, rng: Random) -> list[str]:
-    if count <= 0:
-        return []
-    pool = list(BRIDGE_TEMPLATES)
-    if count >= len(pool):
-        return rng.sample(pool, k=len(pool))
-    return rng.sample(pool, k=count)
+    template = rng.choice(pool)
+    name = (station_name or "VibeFM").strip() or "VibeFM"
+    return template.format(station=name)
 
 
 def prepare_fragment_segments(
@@ -170,11 +158,10 @@ def prepare_fragment_segments(
     audio_dir: Path,
     episode_dir: Path,
     rng: Random,
-    bridge_count: int = 1,
 ) -> list[tuple[dict[str, Any], Path]]:
-    """Render the intro + bridge fragments using the host voice, copy
-    them into the episode's audio directory, and return the (segment_dict,
-    audio_path) tuples in playback order.
+    """Render the intro fragment using the host voice and the user's
+    station name. The fragment is copied into the episode's audio
+    directory and returned with its segment metadata.
     """
     primary_voice_name = config.tts.primary_voice or "host"
     voice_name, voice = _resolve_voice(primary_voice_name, config)
@@ -182,20 +169,17 @@ def prepare_fragment_segments(
     ext = _extension_for_provider(provider, config.tts.response_format)
     audio_dir.mkdir(parents=True, exist_ok=True)
 
-    plan: list[tuple[str, str]] = [("intro", pick_intro_text(time_of_day, rng))]
-    for text in pick_bridge_texts(bridge_count, rng):
-        plan.append(("bridge", text))
+    intro_text = pick_intro_text(config.station_name, time_of_day, rng)
 
     out: list[tuple[dict[str, Any], Path]] = []
-    for index, (kind, text) in enumerate(plan):
-        cached = get_or_render_fragment(text, voice, config, api_keys, cache_dir)
-        target = audio_dir / f"{index:02d}-{kind}.{ext}"
-        target.write_bytes(cached.read_bytes())
-        segment = {
-            "type": kind,
-            "voice": voice_name,
-            "text": text,
-            "audio_file": str(target.relative_to(episode_dir)),
-        }
-        out.append((segment, target))
+    cached = get_or_render_fragment(intro_text, voice, config, api_keys, cache_dir)
+    target = audio_dir / f"00-intro.{ext}"
+    target.write_bytes(cached.read_bytes())
+    segment = {
+        "type": "intro",
+        "voice": voice_name,
+        "text": intro_text,
+        "audio_file": str(target.relative_to(episode_dir)),
+    }
+    out.append((segment, target))
     return out
