@@ -230,16 +230,9 @@ function rssFeedsFromStation(station) {
 
 function episodePayloadFromStation(station) {
   const durationMinutes = Math.max(1, Math.round(state.durationSec / 60));
-  if (station.backendId) {
-    return {
-      mode: state.mode,
-      vibe_id: station.backendId,
-      replace_topics: true,
-      replace_rss_feeds: true,
-      duration: `${durationMinutes} minutes`,
-      duration_minutes: durationMinutes,
-    };
-  }
+  // Always send inline fields. localStorage is the source of truth for
+  // vibe edits; vibe_id would force the backend to load a stale SQLite
+  // copy and ignore the user's latest changes.
   return {
     mode: state.mode,
     station_name: station.name,
