@@ -37,6 +37,9 @@ def synthesize_episode(
     episode_dir: Path,
     on_segment_ready: SegmentReadyCallback | None = None,
     api_keys: ApiKeys | None = None,
+    *,
+    start_index: int = 0,
+    concat_final: bool = True,
 ) -> TtsResult:
     if not config.tts.enabled:
         return TtsResult(segment_files=[], episode_file=None)
@@ -46,11 +49,12 @@ def synthesize_episode(
     audio_dir.mkdir(parents=True, exist_ok=True)
 
     segment_files: list[Path] = []
-    for index, segment in enumerate(episode.get("segments", [])):
+    for offset, segment in enumerate(episode.get("segments", [])):
         text = str(segment.get("text", "")).strip()
         if not text:
             continue
 
+        index = start_index + offset
         voice_name = _voice_name_for_segment(segment, config)
         voice_name, voice = _resolve_voice(voice_name, config)
         segment["voice"] = voice_name
@@ -75,12 +79,13 @@ def synthesize_episode(
             on_segment_ready(index, segment, segment_path)
 
     episode_file = None
-    if segment_files and all(path.suffix == ".wav" for path in segment_files):
-        episode_file = concatenate_wavs(segment_files, episode_dir / "episode.wav")
-    elif segment_files and all(path.suffix == ".mp3" for path in segment_files):
-        episode_file = concatenate_audio_files(
-            segment_files, episode_dir / "episode.mp3"
-        )
+    if concat_final and segment_files:
+        if all(path.suffix == ".wav" for path in segment_files):
+            episode_file = concatenate_wavs(segment_files, episode_dir / "episode.wav")
+        elif all(path.suffix == ".mp3" for path in segment_files):
+            episode_file = concatenate_audio_files(
+                segment_files, episode_dir / "episode.mp3"
+            )
 
     return TtsResult(segment_files=segment_files, episode_file=episode_file)
 
