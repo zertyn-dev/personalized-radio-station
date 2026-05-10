@@ -18,6 +18,24 @@ function loadStoredKeys() {
   return out;
 }
 
+function loadStoredStations() {
+  try {
+    const raw = localStorage.getItem("vibefm.stations");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistStations() {
+  try {
+    localStorage.setItem("vibefm.stations", JSON.stringify(state.stations));
+  } catch {}
+}
+
 function persistKey(name, value) {
   try {
     if (value) localStorage.setItem(`vibefm.keys.${name}`, value);
@@ -595,8 +613,9 @@ function pulseDurationControl() {
 
 function updateStation(id, patch) {
   state.stations = state.stations.map((station) =>
-    station.id === id ? { ...station, ...patch, backendId: patch.backendId === undefined ? null : patch.backendId } : station,
+    station.id === id ? { ...station, ...patch } : station,
   );
+  persistStations();
   render();
 }
 
@@ -625,6 +644,8 @@ function createLocalStation(partial = {}) {
 
 async function createStation() {
   const local = createLocalStation();
+  // Best-effort POST so the backend has a copy; localStorage is the source
+  // of truth so subsequent edits survive reload.
   try {
     const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes", {
       method: "POST",
@@ -634,6 +655,7 @@ async function createStation() {
     state.apiBase = apiBase;
     state.apiStatus = "ready";
     const saved = stationFromVibe(data.vibe, state.stations.length);
+    saved.mhz = local.mhz;
     state.stations = [...state.stations, saved];
     state.editingId = saved.id;
     state.freqMHz = saved.mhz;
@@ -645,6 +667,7 @@ async function createStation() {
     state.freqMHz = local.mhz;
     setPlayer("idle", "LOCAL VIBE");
   }
+  persistStations();
   frequencyDial?.setValue(state.freqMHz, false);
   render();
 }
@@ -655,6 +678,7 @@ function deleteSelectedStation() {
   state.stations = state.stations.filter((station) => station.id !== selected.id);
   state.editingId = state.stations[0]?.id || "";
   if (state.stations[0]) state.freqMHz = state.stations[0].mhz;
+  persistStations();
   setPlayer("idle", "VIBE REMOVED");
   render();
 }
@@ -1009,12 +1033,17 @@ async function checkApi() {
     const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes");
     state.apiBase = apiBase;
     state.sourcePresets = Array.isArray(data.presets) && data.presets.length > 0 ? data.presets : fallbackSourcePresets;
+    // Only seed stations from server when the user has nothing saved
+    // locally yet — otherwise the localStorage source of truth wins so
+    // edits survive reload.
+    const hasLocal = !!loadStoredStations();
     const saved = Array.isArray(data.vibes) ? data.vibes.map(stationFromVibe) : [];
-    if (saved.length > 0) {
+    if (saved.length > 0 && !hasLocal) {
       state.stations = saved;
       state.editingId = saved[0].id;
       state.freqMHz = saved[0].mhz;
       frequencyDial?.setValue(state.freqMHz, false);
+      persistStations();
     }
     state.apiStatus = "ready";
   } catch {
@@ -1116,6 +1145,15 @@ function wireSettings() {
   });
 
   state.keys = loadStoredKeys();
+
+  const storedStations = loadStoredStations();
+  if (storedStations) {
+    state.stations = storedStations;
+    state.editingId = storedStations[0].id;
+    state.freqMHz = storedStations[0].mhz;
+    frequencyDial?.setValue(state.freqMHz, false);
+  }
+
   function renderKeysStatus() {
     if (!els.keysStatus) return;
     const count = Object.keys(buildApiKeys()).length;
