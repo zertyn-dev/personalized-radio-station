@@ -25,13 +25,17 @@ def write_mock_wav(
 
         frames = bytearray()
         for frame in range(total_frames):
-            value = int(0.12 * 32767 * math.sin(2 * math.pi * frequency_hz * frame / sample_rate))
+            value = int(
+                0.12
+                * 32767
+                * math.sin(2 * math.pi * frequency_hz * frame / sample_rate)
+            )
             frames.extend(struct.pack("<h", value))
         wav.writeframes(bytes(frames))
 
 
 def concatenate_wavs(
-    segment_paths: list[Path], output_path: Path, silence_ms: int = 350
+    segment_paths: list[Path], output_path: Path, silence_ms: int = 120
 ) -> Path:
     if not segment_paths:
         raise ValueError("Cannot concatenate an empty list of WAV files.")
@@ -76,43 +80,53 @@ def concatenate_wavs(
 
 
 def concatenate_audio_files(segment_paths: list[Path], output_path: Path) -> Path:
+    """Stitch audio segments end-to-end, trimming the silence padding that
+    TTS providers (ElevenLabs especially) bake into each clip's edges.
+    Without trimming, every segment boundary leaves an audible 300-600ms gap.
+    """
     if not segment_paths:
         raise ValueError("Cannot concatenate an empty list of audio files.")
     if which("ffmpeg") is None:
         raise RuntimeError("ffmpeg is required to assemble compressed audio segments.")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as list_file:
-        list_path = Path(list_file.name)
-        for path in segment_paths:
-            escaped = str(path.resolve()).replace("'", "'\\''")
-            list_file.write(f"file '{escaped}'\n")
+
+    # silenceremove twice via areverse trims silence from BOTH ends of each
+    # input. Threshold -45dB / 80ms covers the typical ElevenLabs padding
+    # without clipping the voice. Then concat the trimmed streams.
+    n = len(segment_paths)
+    trim = (
+        "silenceremove=start_periods=1:start_silence=0.08:start_threshold=-45dB,"
+        "areverse,"
+        "silenceremove=start_periods=1:start_silence=0.08:start_threshold=-45dB,"
+        "areverse"
+    )
+    filter_parts = [f"[{i}:a]{trim}[a{i}]" for i in range(n)]
+    concat_inputs = "".join(f"[a{i}]" for i in range(n))
+    filter_parts.append(f"{concat_inputs}concat=n={n}:v=0:a=1[out]")
+    filter_complex = ";".join(filter_parts)
+
+    args: list[str] = ["ffmpeg", "-y"]
+    for path in segment_paths:
+        args.extend(["-i", str(path)])
+    args.extend(
+        [
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[out]",
+            "-c:a",
+            "libmp3lame",
+            "-b:a",
+            "128k",
+            str(output_path),
+        ]
+    )
 
     try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "concat",
-                "-safe",
-                "0",
-                "-i",
-                str(list_path),
-                "-c:a",
-                "libmp3lame",
-                "-b:a",
-                "128k",
-                str(output_path),
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        subprocess.run(args, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as exc:
         raise RuntimeError(f"ffmpeg failed to assemble audio: {exc.stderr}") from exc
-    finally:
-        list_path.unlink(missing_ok=True)
 
     return output_path
 
