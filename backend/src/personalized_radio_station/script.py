@@ -21,22 +21,23 @@ def stream_script_segments(
 ):
     """Yield segment dicts as they appear in the streaming LLM output.
 
-    Uses an incremental JSON parser: as soon as a `{ ... }` segment object
-    inside the `segments` array becomes complete in the streamed buffer,
-    it's yielded. Callers can start TTS for that segment while the LLM
-    continues writing the remaining segments.
+    Output format is NDJSON (one JSON object per line, no wrapping array).
+    The first complete line yields the first segment as soon as the model
+    finishes the line — usually 50-80 tokens after TTFT. Saves the 30-60
+    tokens of `{"title": "...", "segments": [` envelope that nested-JSON
+    output forced the model to emit before any segment could be yielded.
 
-    Falls back to a single full-buffer parse if the LLM never emits a
-    well-formed array (e.g. small models that return a code-fenced JSON
-    blob).
+    Falls back to a full-buffer parse if the model emits a single nested
+    JSON blob anyway (e.g. small models that ignore the format
+    instruction or wrap the output in code fences).
     """
     messages = [
         {
             "role": "system",
             "content": (
-                "You are a radio producer writing spoken-word scripts. "
-                "Ground every substantive claim in the provided news and weather context. "
-                "Return valid JSON only."
+                "You write spoken-word radio scripts. Ground every substantive "
+                "claim in the provided news context. Return ONE JSON object per "
+                "line (NDJSON), no wrapping array, no preamble, no markdown."
             ),
         },
         {
@@ -45,67 +46,91 @@ def stream_script_segments(
         },
     ]
 
-    decoder = json.JSONDecoder()
     buffer = ""
-    array_pos = -1
-    parse_pos = 0
     yielded = 0
+
+    def parse_line(line: str) -> dict | None:
+        """Parse a single line as a segment object. Returns None if it
+        isn't a valid segment shape ({"type", "text"}). If it's the legacy
+        envelope shape (`{title, segments: [...]}`) the caller can unwrap.
+        """
+        line = line.strip().rstrip(",").strip()
+        if not line.startswith("{") or not line.endswith("}"):
+            return None
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(obj, dict):
+            return None
+        return obj
+
+    def is_segment(obj: dict) -> bool:
+        return "text" in obj and "type" in obj
+
+    def unwrap_envelope(obj: dict):
+        if isinstance(obj, dict) and isinstance(obj.get("segments"), list):
+            for seg in obj["segments"]:
+                if isinstance(seg, dict):
+                    yield seg
 
     for chunk in stream_text(messages, config.ai, api_keys):
         buffer += chunk
-
-        if array_pos < 0:
-            seg_idx = buffer.find('"segments"')
-            if seg_idx < 0:
+        while "\n" in buffer:
+            line, buffer = buffer.split("\n", 1)
+            obj = parse_line(line)
+            if obj is None:
                 continue
-            bracket_idx = buffer.find("[", seg_idx)
-            if bracket_idx < 0:
-                continue
-            array_pos = bracket_idx + 1
-            parse_pos = array_pos
+            if is_segment(obj):
+                yielded += 1
+                yield obj
+            else:
+                # Legacy envelope on a single line — unwrap.
+                for seg in unwrap_envelope(obj):
+                    yielded += 1
+                    yield seg
 
-        # Drain as many complete segment objects as possible.
-        while parse_pos < len(buffer):
-            while parse_pos < len(buffer) and buffer[parse_pos] in " \t\n\r,":
-                parse_pos += 1
-            if parse_pos >= len(buffer):
-                break
-            if buffer[parse_pos] == "]":
-                return
-            try:
-                obj, end = decoder.raw_decode(buffer, parse_pos)
-            except json.JSONDecodeError:
-                break  # incomplete; wait for next chunk
-            parse_pos = end
+    obj = parse_line(buffer)
+    if obj is not None:
+        if is_segment(obj):
             yielded += 1
             yield obj
+            return
+        for seg in unwrap_envelope(obj):
+            yielded += 1
+            yield seg
+        if yielded > 0:
+            return
 
-    # Stream ended without giving us segments via the incremental path.
-    # Try one last fallback parse on the full buffer (handles code fences,
-    # mock providers that yield the full JSON in one chunk, etc.).
+    # NDJSON path didn't produce anything — fall back to full-buffer parse.
     if yielded == 0:
         text = buffer.strip()
         if text.startswith("```"):
-            inner = text.split("```", 2)
-            if len(inner) >= 2:
-                text = inner[1]
+            parts = text.split("```", 2)
+            if len(parts) >= 2:
+                text = parts[1]
                 if text.startswith("json"):
                     text = text[4:]
         text = text.strip()
         try:
             data = json.loads(text)
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start >= 0 and end > start:
-                try:
-                    data = json.loads(text[start : end + 1])
-                except json.JSONDecodeError:
-                    return
-            else:
+            if isinstance(data, dict):
+                for segment in data.get("segments", []):
+                    yield segment
                 return
-        for segment in data.get("segments", []):
-            yield segment
+        except json.JSONDecodeError:
+            pass
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                data = json.loads(text[start : end + 1])
+                if isinstance(data, dict):
+                    for segment in data.get("segments", []):
+                        yield segment
+                    return
+            except json.JSONDecodeError:
+                pass
 
 
 def generate_script(
@@ -176,110 +201,49 @@ def _build_prompt(
     }
 
     return (
-        "You are an experienced human radio DJ. You're writing the live "
-        "portion of a personal-broadcast script that will be spoken aloud by "
-        "ElevenLabs TTS. A short pre-recorded station ID has ALREADY played "
-        "before your segments — something like `Welcome to "
-        f"{config.station_name}.` or `Good evening. You're listening to "
-        f"{config.station_name}.` — you don't write that. You pick up the "
-        "mic from there and roll straight into the stories. The result must "
-        "FEEL like a real DJ on air.\n\n"
-        "Output JSON ONLY:\n"
-        "{\n"
-        '  "title": "Episode title",\n'
-        '  "segments": [\n'
-        '    {"type": "news|outro", "voice": "host", "text": "..."}\n'
-        "  ]\n"
-        "}\n\n"
-        "DO NOT produce an `intro` segment. The first segment in your "
-        "output is a `news` segment — the live host rolling from the "
-        "pre-recorded station ID into the first story.\n\n"
-        "OPENING (first news segment) — NATURAL DJ ROLL-IN:\n"
-        f"- The listener has just heard the station ID for {config.station_name}. "
-        "Your first line picks up from there like a real DJ unmuting "
-        "after their own intro tag.\n"
-        "- Lead with a hook drawn from the first news item's title or "
-        "summary. Examples:\n"
-        "    `Alright — first story I want to flag tonight comes from TechCrunch…`\n"
-        "    `Now, the thing that's been on my mind today…`\n"
-        "    `Kicking things off over at Hacker News, where…`\n"
-        "    `Big one out of the gate — {source} is reporting that…`\n"
-        "- DO NOT greet the listener again, DO NOT say 'welcome', DO NOT "
-        f"repeat the station name '{config.station_name}' in the opening — "
-        "the listener just heard it. Going straight to a `welcome` again "
-        "sounds robotic.\n\n"
-        "BODY (subsequent news segments) — STAY ON TOPIC:\n"
-        "- One news segment per item in `news[]`, in the order provided.\n"
-        "- Each segment leads with a hook drawn from that news item's title "
-        "and summary, then unpacks the story. Use the source name when it "
-        "adds credibility ('TechCrunch is reporting…', 'over on Hacker News…').\n"
-        "- Smooth DJ transitions between stories from segment 2 onward. "
-        "Connective tissue: 'speaking of which', 'meanwhile', 'now this "
-        "next one', 'and over at [source]', 'staying on the same "
-        "wavelength'.\n"
-        "- EVERY spoken news claim must trace to a provided news item. Do NOT "
-        "invent stories, statistics, businesses, people, predictions, or "
-        "recommendations. If you want to add a host reaction, frame it as a "
-        "quick personal take on that specific story.\n"
-        "- If `news[]` is empty or thin, keep the body short and exit gracefully "
-        "rather than padding with speculation.\n\n"
-        "OUTRO — KEEP THE SHOW GOING:\n"
-        "- Short, in-character sign-off that feels like the DJ is about to "
-        "move on to whatever's next on the station. Leave an 'infinite show' "
-        "feeling. The listener is leaving the station, not the station "
-        "ending.\n"
-        "- BANNED outros: 'Thanks for tuning in', 'That's all for today', "
-        "'Have a great day'. Too generic — breaks the spell.\n\n"
-        "VOICE & FEEL:\n"
-        "- Address the listener directly as `you`. Contractions everywhere "
-        "(you're, we've, that's, there's). Vary sentence length: mix short "
-        "punchy lines with longer riffing ones.\n"
-        "- Use ellipses (...) and em-dashes (—) for breath, pause, and beat. "
-        "ElevenLabs respects them. A well-placed pause sells the line.\n"
-        "- Drop AI tells. Banned phrasing: 'Today, I will...', 'Let me "
-        "cover...', 'Here are the highlights', 'In conclusion', 'I hope this "
-        "helps', 'Welcome to a special broadcast...'.\n"
-        "- Casual tone = warm, vibey, more texture, more reactions. "
-        "Professional = crisper framing, less filler, still human and warm.\n"
-        "- For duo shows: real back-and-forth. The cohost reacts in a line, "
-        "builds on the host, or takes the next story from the top. No speaker "
-        "labels in the spoken text — voice labels in the JSON do that.\n"
-        "- Use the voice label the `voice_policy` says. Avoid markdown. Skip "
-        "raw URLs in spoken text.\n\n"
-        "WRITE FOR THE EAR (this is critical for natural-sounding TTS):\n"
-        "- Spell numbers, dates, and currency the way a human SAYS them, not "
-        "the way they're typed. Examples:\n"
-        "    `2026` -> `twenty twenty-six`\n"
-        "    `$1.2M` -> `one point two million dollars`\n"
-        "    `90%` -> `ninety percent`\n"
-        "    `15:30 UTC` -> `three-thirty in the afternoon` (or context-appropriate)\n"
-        "    `Q3` -> `the third quarter`\n"
-        "- Acronyms that are read as letters stay as letters (FBI, NASA, AI, EU). "
-        "Acronyms that are read as words become words (NATO -> nay-toh is fine "
-        "as `NATO`; CAPTCHA -> `captcha`).\n"
-        "- Spell out unusual symbols (`&` -> `and`, `+` -> `plus`).\n"
-        "- Sprinkle natural disfluencies sparingly: `you know`, `I mean`, "
-        "`look`, `right`, `honestly`. One per minute or two — not every "
-        "sentence. They humanize the script, but overuse breaks it.\n"
-        "- Comma-pause where a real person would breathe. Long sentences with "
-        "no commas read as a wall.\n\n"
-        "LENGTH — MUST MATCH THE LISTENER'S TIME:\n"
-        "- The listener picked a duration. Hit it. `target_word_count` is the "
-        "total spoken words across ALL your news + outro segments (the "
-        "pre-recorded opening is short and not counted against your budget). "
-        "Stay inside `target_word_range` (min/max).\n"
-        "- Distribute the word budget: news body ~85–95% of total, short "
-        "outro ~5–10%.\n"
-        "- Better to land slightly under than over. If the news is thin, keep "
-        "it brief — do not pad.\n"
-        "- If `target_duration` is `unlimited`, prioritize useful source-backed "
-        "coverage over hitting any runtime.\n\n"
-        "GROUNDING (no exceptions):\n"
-        "- DO NOT produce a weather segment or read a weather report. "
-        "`weather.time_of_day` is informational only.\n"
-        "- DO NOT invent news, businesses, people, statistics, predictions, "
-        "or recommendations.\n"
-        "- DO NOT mention the listener by name or role. They're the listener.\n\n"
+        "You are a human radio DJ writing the live spoken portion of a show "
+        "for ElevenLabs TTS. A short pre-recorded station ID for "
+        f"{config.station_name} just played (e.g. `Welcome to "
+        f"{config.station_name}.`); you pick up the mic from there.\n\n"
+        "OUTPUT FORMAT (NDJSON, ONE OBJECT PER LINE, NO ARRAY, NO MARKDOWN):\n"
+        '{"type": "news", "voice": "host", "text": "..."}\n'
+        '{"type": "news", "voice": "host", "text": "..."}\n'
+        '{"type": "outro", "voice": "host", "text": "..."}\n\n'
+        "RULES:\n"
+        "- One `news` segment per item in `news[]`, in order. Final segment "
+        "is `outro`. No `intro` segment — the station ID already played.\n"
+        "- First news line is a natural DJ roll-in (e.g. `Alright — first "
+        "story tonight comes from TechCrunch…`, `Kicking things off over at "
+        "Hacker News…`). DO NOT say 'welcome' or repeat the station name.\n"
+        "- Smooth transitions from segment 2 onward: 'speaking of which', "
+        "'meanwhile', 'now this next one', 'over at [source]'.\n"
+        "- Hook first, source attribution second, story unpacked. Use source "
+        "names when they add credibility, never raw URLs.\n"
+        "- EVERY claim must trace to a provided news item. No invented "
+        "stories, stats, predictions, businesses, or weather report.\n"
+        "- Outro: in-character sign-off. NEVER 'Thanks for tuning in' or "
+        "'That's all for today' — too generic. Leave an infinite-show feel.\n\n"
+        "VOICE:\n"
+        "- Direct `you` address. Contractions everywhere. Vary sentence "
+        "length. Use `...` and em-dashes (—) for breath/pause; ElevenLabs "
+        "respects them.\n"
+        "- Banned AI tells: 'Today, I will…', 'Let me cover…', 'Here are the "
+        "highlights', 'In conclusion'.\n"
+        "- Casual = warm/vibey/more texture; professional = crisp/less filler.\n"
+        "- Duo: real back-and-forth, no speaker labels in spoken text — the "
+        "JSON `voice` field handles that.\n\n"
+        "WRITE FOR THE EAR:\n"
+        "- Spell numbers/dates/currency how a human SAYS them: `2026` → "
+        "`twenty twenty-six`, `$1.2M` → `one point two million dollars`, "
+        "`90%` → `ninety percent`, `Q3` → `the third quarter`.\n"
+        "- Letter acronyms stay caps (FBI, NASA, AI). Word acronyms become "
+        "words (`captcha`).\n"
+        "- Comma-pause where a person would breathe. Sparing natural fillers "
+        "(`you know`, `I mean`, `right`) — at most one per minute.\n\n"
+        "LENGTH:\n"
+        "- Hit `target_word_count` across all your segments. Stay inside "
+        "`target_word_range`. News ~85–95% of budget, outro ~5–10%. Better "
+        "slightly under than over. Don't pad.\n\n"
         f"Context:\n{json.dumps(context, indent=2)}"
     )
 
