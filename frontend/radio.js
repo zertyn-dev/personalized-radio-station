@@ -173,10 +173,35 @@ async function requestJsonFromAnyApi(primaryApiBase, path, options = {}) {
   throw lastError || new Error("API request failed");
 }
 
+// Spread N stations evenly across the band, with a small pad off both
+// edges so nothing sits on the dial limits. Rounded to 0.1 MHz so the
+// FM-style readout stays clean.
+function distributedFrequencies(count) {
+  if (count <= 0) return [];
+  const start = FREQ_MIN + 1.0; // 88.5
+  const end = FREQ_MAX - 0.5;   // 107.5
+  if (count === 1) return [Math.round(((start + end) / 2) * 10) / 10];
+  const step = (end - start) / (count - 1);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    out.push(Math.round((start + i * step) * 10) / 10);
+  }
+  return out;
+}
+
+function redistributeFrequencies() {
+  const freqs = distributedFrequencies(state.stations.length);
+  state.stations = state.stations.map((station, idx) => ({
+    ...station,
+    mhz: freqs[idx],
+  }));
+}
+
 function frequencyForIndex(index) {
-  const saved = [88.3, 91.4, 94.7, 98.1, 101.2, 104.6, 106.8, 107.6];
-  if (index < saved.length) return saved[index];
-  return Math.round((88.1 + (((index - saved.length + 1) * 1.7) % 19.2)) * 10) / 10;
+  // Kept as a simple lookup for stationFromVibe (server-side seed flow).
+  // The actual layout is set by redistributeFrequencies() after every
+  // mutation, so this is only a temporary placeholder.
+  return Math.round((FREQ_MIN + 1 + index * 2) * 10) / 10;
 }
 
 function stationFromVibe(vibe, index) {
@@ -614,16 +639,15 @@ function updateStation(id, patch) {
 
 function createLocalStation(partial = {}) {
   const id = `local-${Date.now()}`;
-  let mhz = 88.5;
-  while (state.stations.some((station) => Math.abs(station.mhz - mhz) < 0.6) && mhz < 107.5) {
-    mhz += 1.0;
-  }
+  // mhz here is a placeholder; redistributeFrequencies() resets every
+  // station's frequency based on the total count after the new one is
+  // pushed, so the layout stays evenly spread across the band.
   return {
     id,
     backendId: null,
     name: "NEW VIBE",
     tag: "local draft",
-    mhz: Math.round(mhz * 10) / 10,
+    mhz: 99.0,
     hosts: 1,
     voiceA: "F",
     voiceB: "M",
@@ -639,6 +663,7 @@ async function createStation() {
   const local = createLocalStation();
   // Best-effort POST so the backend has a copy; localStorage is the source
   // of truth so subsequent edits survive reload.
+  let added = local;
   try {
     const { data, apiBase } = await requestJsonFromAnyApi(state.apiBase, "/api/vibes", {
       method: "POST",
@@ -647,19 +672,18 @@ async function createStation() {
     });
     state.apiBase = apiBase;
     state.apiStatus = "ready";
-    const saved = stationFromVibe(data.vibe, state.stations.length);
-    saved.mhz = local.mhz;
-    state.stations = [...state.stations, saved];
-    state.editingId = saved.id;
-    state.freqMHz = saved.mhz;
+    added = stationFromVibe(data.vibe, state.stations.length);
     setPlayer("idle", "VIBE SAVED");
   } catch (error) {
     state.apiStatus = "offline";
-    state.stations = [...state.stations, local];
-    state.editingId = local.id;
-    state.freqMHz = local.mhz;
     setPlayer("idle", "LOCAL VIBE");
   }
+  state.stations = [...state.stations, added];
+  redistributeFrequencies();
+  // Tune to the freshly-redistributed slot of the new station (last index).
+  const newStation = state.stations[state.stations.length - 1];
+  state.editingId = newStation.id;
+  state.freqMHz = newStation.mhz;
   persistStations();
   frequencyDial?.setValue(state.freqMHz, false);
   render();
@@ -669,8 +693,11 @@ function deleteSelectedStation() {
   const selected = selectedStation();
   if (!selected) return;
   state.stations = state.stations.filter((station) => station.id !== selected.id);
-  state.editingId = state.stations[0]?.id || "";
-  if (state.stations[0]) state.freqMHz = state.stations[0].mhz;
+  redistributeFrequencies();
+  const next = state.stations[0];
+  state.editingId = next?.id || "";
+  if (next) state.freqMHz = next.mhz;
+  frequencyDial?.setValue(state.freqMHz, false);
   persistStations();
   setPlayer("idle", "VIBE REMOVED");
   render();
@@ -1143,9 +1170,15 @@ function wireSettings() {
   if (storedStations) {
     state.stations = storedStations;
     state.editingId = storedStations[0].id;
-    state.freqMHz = storedStations[0].mhz;
+  }
+  // Always redistribute on boot so the dial layout matches the current
+  // station count, regardless of what mhz values were stored.
+  redistributeFrequencies();
+  if (state.stations[0]) {
+    state.freqMHz = state.stations[0].mhz;
     frequencyDial?.setValue(state.freqMHz, false);
   }
+  persistStations();
 
   function renderKeysStatus() {
     if (!els.keysStatus) return;
