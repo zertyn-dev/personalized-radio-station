@@ -66,20 +66,25 @@ tts:
         )
 
         self.assertNotIn("already_on_air_listener_just_tuned_in", prompt)
-        self.assertNotIn("station was already playing", prompt)
-        self.assertIn("time-of-day appropriate", prompt)
-        self.assertIn("mid-sentence as if cut in", prompt)
+        self.assertIn("tune into mid-show", prompt)
+        self.assertIn("already mid-conversation", prompt)
+        self.assertIn("DO NOT start with 'Good morning'", prompt)
         self.assertIn('"time_of_day": "morning"', prompt)
         self.assertIn('Use the voice label \\"host\\" for every segment.', prompt)
-        self.assertIn("Casual = warm, vibey", prompt)
+        self.assertIn("Casual tone = warm, vibey", prompt)
         self.assertIn("Professional = crisper framing", prompt)
         self.assertIn('"target_duration": "18 minutes"', prompt)
         self.assertIn('"speech_rate_words_per_minute": 155', prompt)
         self.assertIn('"target_word_count": 2790', prompt)
         self.assertIn('"min": 2567', prompt)
         self.assertIn('"max": 3013', prompt)
-        self.assertIn("Every claim must trace to the provided news", prompt)
-        self.assertIn("Don't invent topics, businesses", prompt)
+        self.assertIn("EVERY spoken news claim must trace", prompt)
+        self.assertIn("DO NOT invent news, businesses", prompt)
+        self.assertIn(
+            "One news segment per item in `news[]`, in the order provided.", prompt
+        )
+        self.assertIn("DO NOT produce a weather segment", prompt)
+        self.assertIn("BANNED outros:", prompt)
 
     def test_generate_script_revises_once_when_word_count_is_outside_range(
         self,
