@@ -16,44 +16,49 @@ TONE_STYLES = {
     ),
 }
 
-# Default voice IDs use ElevenLabs' standard public voice library so any
-# ElevenLabs API key works out of the box. Settings tuned for radio: lower
-# stability => more expressive variation (less monotone), higher
-# similarity_boost => keeps the voice recognizable, moderate style => personality
-# without overacting, speaker_boost on for clearer radio presence.
+# Defaults pull from ElevenLabs' newer conversational voice library; legacy
+# voices like Rachel/Adam (2022) are well-known but trained on more formal
+# audiobook content and sound stiffer through current models.
+#
+# Settings tuned for natural radio talk:
+# - stability 0.30: more emotional variation (avoids monotone)
+# - similarity_boost 0.75: voice stays recognizable without rigid mimicry
+# - style 0.55: personality / inflection on top of the base voice
+# - use_speaker_boost False: speaker_boost actually flattens prosody and adds
+#   a "produced" sheen; off feels closer to a person at a mic.
 _RADIO_SETTINGS = {
-    "stability": 0.35,
-    "similarity_boost": 0.85,
-    "style": 0.45,
-    "use_speaker_boost": True,
+    "stability": 0.30,
+    "similarity_boost": 0.75,
+    "style": 0.55,
+    "use_speaker_boost": False,
 }
 
 VOICE_PRESETS = {
     "female": {
         "host": TtsVoiceConfig(
-            voice="21m00Tcm4TlvDq8ikWAM",  # Rachel — warm, narrative female
+            voice="9BWtsMINqrJLrRacOk9x",  # Aria — expressive, conversational
             instructions="Warm, expressive female radio host with natural momentum.",
-            words_per_minute=155,
+            words_per_minute=150,
             settings=dict(_RADIO_SETTINGS),
         ),
         "cohost": TtsVoiceConfig(
-            voice="EXAVITQu4vr4xnSDxMaL",  # Sarah — softer female cohost
+            voice="pFZP5JQG7iQjIQuC4Bku",  # Lily — warm, friendly British
             instructions="Friendly female co-host, conversational and quick.",
-            words_per_minute=158,
+            words_per_minute=152,
             settings=dict(_RADIO_SETTINGS),
         ),
     },
     "male": {
         "host": TtsVoiceConfig(
-            voice="pNInz6obpgDQGcFmaJgB",  # Adam — deep, grounded male
+            voice="nPczCjzI2devNBz1zQrb",  # Brian — natural casual American narrator
             instructions="Calm, confident male radio host with grounded delivery.",
-            words_per_minute=150,
+            words_per_minute=148,
             settings=dict(_RADIO_SETTINGS),
         ),
         "cohost": TtsVoiceConfig(
-            voice="ErXwobaYiN019PkySvjV",  # Antoni — well-rounded male cohost
+            voice="TX3LPaxmHKxFdv7VOQHJ",  # Liam — articulate, modern male
             instructions="Clear male co-host, lightly energetic and direct.",
-            words_per_minute=154,
+            words_per_minute=150,
             settings=dict(_RADIO_SETTINGS),
         ),
     },

@@ -35,8 +35,8 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(config.tts.enabled)
         self.assertTrue(config.tts.single_voice)
         self.assertEqual(config.tts.primary_voice, "host")
-        self.assertEqual(config.tts.words_per_minute, 155)
-        self.assertEqual(config.tts.voices["host"].words_per_minute, 155)
+        self.assertEqual(config.tts.words_per_minute, 150)
+        self.assertEqual(config.tts.voices["host"].words_per_minute, 150)
         self.assertEqual(config.duration.label, "5 minutes")
         self.assertEqual(config.news.rss_feeds, DEFAULT_RSS_FEEDS)
 

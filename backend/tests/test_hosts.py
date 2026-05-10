@@ -17,8 +17,8 @@ class HostProfileTests(unittest.TestCase):
         self.assertEqual(configured.tts.primary_voice, "host")
         self.assertEqual(configured.voices["intro"], "host")
         self.assertEqual(configured.voices["news"], "cohost")
-        self.assertEqual(configured.tts.voices["host"].voice, "pNInz6obpgDQGcFmaJgB")
-        self.assertEqual(configured.tts.voices["cohost"].voice, "ErXwobaYiN019PkySvjV")
+        self.assertEqual(configured.tts.voices["host"].voice, "nPczCjzI2devNBz1zQrb")
+        self.assertEqual(configured.tts.voices["cohost"].voice, "TX3LPaxmHKxFdv7VOQHJ")
         self.assertIn("male radio host", configured.tts.voices["host"].instructions)
 
     def test_casual_solo_links_to_vibe_forward_single_voice(self) -> None:
@@ -29,7 +29,7 @@ class HostProfileTests(unittest.TestCase):
         self.assertIn("vibe-forward", configured.style)
         self.assertTrue(configured.tts.single_voice)
         self.assertEqual(configured.voices["news"], "host")
-        self.assertEqual(configured.tts.voices["host"].voice, "21m00Tcm4TlvDq8ikWAM")
+        self.assertEqual(configured.tts.voices["host"].voice, "9BWtsMINqrJLrRacOk9x")
         self.assertNotIn("cohost", configured.voices.values())
 
     def test_host_style_names_the_shape(self) -> None:
