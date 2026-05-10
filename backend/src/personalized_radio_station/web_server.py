@@ -297,17 +297,26 @@ class EpisodeService:
             }
             script_words = count_episode_words(episode)
             episode["timing"] = episode_timing_metadata(config, script_words)
-            self._prepare_public_segments(job, episode)
+            # Append body segments to job.segments WITHOUT touching the
+            # fragments that are already marked ready — re-marking them
+            # would re-emit segment_ready and cause the frontend to queue
+            # the same audio twice.
+            with job.condition:
+                job.title = str(episode.get("title") or job.title)
+                base = len(job.segments)
+                for offset, segment in enumerate(body_segments):
+                    job.segments.append(
+                        {
+                            "index": base + offset,
+                            "type": str(segment.get("type", "segment")),
+                            "title": str(segment.get("type", "segment")).title(),
+                            "status": "pending",
+                        }
+                    )
             (job.output_dir / "episode.json").write_text(
                 json.dumps(episode, indent=2) + "\n"
             )
             (job.output_dir / "script.md").write_text(render_markdown(episode))
-            # Re-mark fragments as ready (they were re-bucketed when
-            # _prepare_public_segments rebuilt job.segments above).
-            for index, (segment, path) in enumerate(
-                zip(fragment_segments, fragment_files)
-            ):
-                self._mark_segment_ready(job, index, segment, path)
             self._emit(
                 job,
                 "script_ready",
