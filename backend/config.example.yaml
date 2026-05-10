@@ -26,7 +26,10 @@ ai:
 tts:
   enabled: true
   provider: "elevenlabs"
-  model: "elevenlabs/eleven_turbo_v2_5"
+  # eleven_multilingual_v2 is the best quality/cost balance for natural radio.
+  # eleven_turbo_v2_5 is faster + cheaper but flatter. eleven_v3 is more
+  # expressive (alpha-gated). UI host_profile may override the per-voice id.
+  model: "elevenlabs/eleven_multilingual_v2"
   response_format: "mp3"
   api_key_env: "ELEVENLABS_API_KEY"
   single_voice: true
@@ -34,10 +37,12 @@ tts:
   words_per_minute: 155
   voices:
     host:
-      voice: "alloy"
+      # Rachel — warm, narrative female from the standard ElevenLabs library.
+      # Overridden by host_profile when the UI sets voice_gender + host_format.
+      voice: "21m00Tcm4TlvDq8ikWAM"
       words_per_minute: 155
       settings:
-        stability: 0.45
-        similarity_boost: 0.75
-        style: 0.25
+        stability: 0.35
+        similarity_boost: 0.85
+        style: 0.45
         use_speaker_boost: true

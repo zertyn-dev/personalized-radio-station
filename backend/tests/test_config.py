@@ -2,7 +2,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from personalized_radio_station.config import DEFAULT_RSS_FEEDS, load_config, parse_duration
+from personalized_radio_station.config import (
+    DEFAULT_RSS_FEEDS,
+    load_config,
+    parse_duration,
+)
 
 
 class ConfigTests(unittest.TestCase):
@@ -26,7 +30,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.ai.max_tokens, 4000)
         self.assertEqual(config.ai.reasoning, {"effort": "low", "exclude": True})
         self.assertEqual(config.tts.provider, "elevenlabs")
-        self.assertEqual(config.tts.model, "elevenlabs/eleven_turbo_v2_5")
+        self.assertEqual(config.tts.model, "elevenlabs/eleven_multilingual_v2")
         self.assertEqual(config.tts.api_key_env, "ELEVENLABS_API_KEY")
         self.assertTrue(config.tts.enabled)
         self.assertTrue(config.tts.single_voice)

@@ -16,29 +16,45 @@ TONE_STYLES = {
     ),
 }
 
+# Default voice IDs use ElevenLabs' standard public voice library so any
+# ElevenLabs API key works out of the box. Settings tuned for radio: lower
+# stability => more expressive variation (less monotone), higher
+# similarity_boost => keeps the voice recognizable, moderate style => personality
+# without overacting, speaker_boost on for clearer radio presence.
+_RADIO_SETTINGS = {
+    "stability": 0.35,
+    "similarity_boost": 0.85,
+    "style": 0.45,
+    "use_speaker_boost": True,
+}
+
 VOICE_PRESETS = {
     "female": {
         "host": TtsVoiceConfig(
-            voice="coral",
+            voice="21m00Tcm4TlvDq8ikWAM",  # Rachel — warm, narrative female
             instructions="Warm, expressive female radio host with natural momentum.",
             words_per_minute=155,
+            settings=dict(_RADIO_SETTINGS),
         ),
         "cohost": TtsVoiceConfig(
-            voice="alloy",
-            instructions="Bright female co-host, concise and conversational.",
+            voice="EXAVITQu4vr4xnSDxMaL",  # Sarah — softer female cohost
+            instructions="Friendly female co-host, conversational and quick.",
             words_per_minute=158,
+            settings=dict(_RADIO_SETTINGS),
         ),
     },
     "male": {
         "host": TtsVoiceConfig(
-            voice="onyx",
+            voice="pNInz6obpgDQGcFmaJgB",  # Adam — deep, grounded male
             instructions="Calm, confident male radio host with grounded delivery.",
             words_per_minute=150,
+            settings=dict(_RADIO_SETTINGS),
         ),
         "cohost": TtsVoiceConfig(
-            voice="verse",
+            voice="ErXwobaYiN019PkySvjV",  # Antoni — well-rounded male cohost
             instructions="Clear male co-host, lightly energetic and direct.",
             words_per_minute=154,
+            settings=dict(_RADIO_SETTINGS),
         ),
     },
 }
