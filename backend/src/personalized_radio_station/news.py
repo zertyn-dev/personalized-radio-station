@@ -4,12 +4,48 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from email.utils import parsedate_to_datetime
 from html import unescape
-from urllib.parse import quote_plus, urlsplit
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 import re
 import xml.etree.ElementTree as ET
 
 from .config import NewsConfig
+
+
+def normalize_feed_url(url: str) -> str:
+    """Rewrite human-readable URLs to their RSS equivalents.
+
+    Idempotent: applying twice is the same as applying once. Unknown URLs
+    pass through unchanged.
+    """
+    raw = (url or "").strip()
+    if not raw:
+        return raw
+    parts = urlsplit(raw)
+    if parts.scheme.lower() not in {"http", "https"}:
+        return raw
+    host = parts.netloc.lower().removeprefix("www.")
+    path = parts.path
+
+    # TechCrunch category/tag/author pages: append /feed/ if missing.
+    if host == "techcrunch.com":
+        if re.match(r"^/(category|tag|author)/[^/]+/?$", path):
+            new_path = path if path.endswith("/") else path + "/"
+            new_path = new_path + "feed/"
+            return urlunsplit((parts.scheme, parts.netloc, new_path, parts.query, ""))
+
+    # HN Algolia search -> hnrss.org/newest?q=...
+    if host == "hn.algolia.com":
+        params = dict(parse_qsl(parts.query, keep_blank_values=False))
+        query = params.get("q") or params.get("query")
+        if query:
+            return f"https://hnrss.org/newest?{urlencode({'q': query})}"
+
+    # Google News human search URL -> RSS search URL.
+    if host == "news.google.com" and path in {"/search", "/search/"}:
+        return urlunsplit((parts.scheme, parts.netloc, "/rss/search", parts.query, ""))
+
+    return raw
 
 
 @dataclass(frozen=True)

@@ -4,7 +4,7 @@ import time
 import unittest
 
 from personalized_radio_station.config import NewsConfig
-from personalized_radio_station.news import _parse_feed, fetch_news
+from personalized_radio_station.news import _parse_feed, fetch_news, normalize_feed_url
 
 
 class NewsTests(unittest.TestCase):
@@ -81,6 +81,65 @@ def _rss(channel_title: str, item_title: str) -> str:
   </channel>
 </rss>
 """.strip()
+
+
+class NormalizeFeedUrlTests(unittest.TestCase):
+    def test_techcrunch_category_appends_feed(self) -> None:
+        self.assertEqual(
+            normalize_feed_url("https://techcrunch.com/category/security/"),
+            "https://techcrunch.com/category/security/feed/",
+        )
+        self.assertEqual(
+            normalize_feed_url("https://techcrunch.com/tag/openai"),
+            "https://techcrunch.com/tag/openai/feed/",
+        )
+        self.assertEqual(
+            normalize_feed_url("https://www.techcrunch.com/author/sarah/"),
+            "https://www.techcrunch.com/author/sarah/feed/",
+        )
+
+    def test_techcrunch_already_feed_is_unchanged(self) -> None:
+        url = "https://techcrunch.com/category/security/feed/"
+        self.assertEqual(normalize_feed_url(url), url)
+
+    def test_hn_algolia_search_rewrites_to_hnrss(self) -> None:
+        self.assertEqual(
+            normalize_feed_url("https://hn.algolia.com/?q=World+cup"),
+            "https://hnrss.org/newest?q=World+cup",
+        )
+        self.assertEqual(
+            normalize_feed_url("https://hn.algolia.com/?query=rust"),
+            "https://hnrss.org/newest?q=rust",
+        )
+
+    def test_google_news_search_uses_rss_path(self) -> None:
+        self.assertEqual(
+            normalize_feed_url("https://news.google.com/search?q=potato+prices&hl=es"),
+            "https://news.google.com/rss/search?q=potato+prices&hl=es",
+        )
+
+    def test_google_news_rss_url_is_unchanged(self) -> None:
+        url = "https://news.google.com/rss/search?q=potato+prices"
+        self.assertEqual(normalize_feed_url(url), url)
+
+    def test_unknown_url_passes_through(self) -> None:
+        url = "https://example.com/feed.xml"
+        self.assertEqual(normalize_feed_url(url), url)
+
+    def test_idempotent(self) -> None:
+        for raw in [
+            "https://techcrunch.com/category/security/",
+            "https://hn.algolia.com/?q=World+cup",
+            "https://news.google.com/search?q=hello",
+            "https://example.com/feed.xml",
+        ]:
+            once = normalize_feed_url(raw)
+            twice = normalize_feed_url(once)
+            self.assertEqual(once, twice, f"not idempotent for {raw!r}")
+
+    def test_empty_or_blank_passes_through(self) -> None:
+        self.assertEqual(normalize_feed_url(""), "")
+        self.assertEqual(normalize_feed_url("   "), "")
 
 
 if __name__ == "__main__":

@@ -145,7 +145,9 @@ class VibeStore:
     def create_vibe(self, payload: dict[str, Any]) -> Vibe:
         name = _clean_name(payload.get("name", payload.get("station_name")))
         custom_rss_feeds = _clean_rss_feeds(
-            payload.get("custom_rss_feeds", payload.get("rss_feeds", payload.get("rss")))
+            payload.get(
+                "custom_rss_feeds", payload.get("rss_feeds", payload.get("rss"))
+            )
         )
         preset_value = payload.get(
             "source_preset_ids",
@@ -262,17 +264,21 @@ def _clean_preset_ids(value: Any) -> list[str]:
 
     if invalid:
         valid = ", ".join(source["label"] for source in PRESET_RSS_SOURCES.values())
-        raise ValueError(f"Unknown preset source: {', '.join(invalid)}. Valid presets: {valid}.")
+        raise ValueError(
+            f"Unknown preset source: {', '.join(invalid)}. Valid presets: {valid}."
+        )
 
     return _dedupe_strings(preset_ids)
 
 
 def _clean_rss_feeds(value: Any) -> list[str]:
+    from .news import normalize_feed_url
+
     feeds: list[str] = []
     for raw in _string_values(value):
         if urlparse(raw).scheme.lower() not in {"http", "https"}:
             raise ValueError(f"RSS feed must start with http:// or https://: {raw}")
-        feeds.append(raw)
+        feeds.append(normalize_feed_url(raw))
     return _dedupe_strings(feeds)
 
 

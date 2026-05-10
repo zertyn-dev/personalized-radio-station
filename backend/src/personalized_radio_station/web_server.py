@@ -25,7 +25,11 @@ from .config import (
 )
 from .env import load_env_file
 from .hosts import apply_host_profile, host_style
-from .news import describe_news_sources, fetch_news
+from .news import (
+    describe_news_sources,
+    fetch_news,
+    normalize_feed_url as _normalize_feed_url,
+)
 from .runtime import assert_runtime_ready
 from .script import generate_script, render_markdown
 from .timing import add_audio_timing, count_episode_words, episode_timing_metadata
@@ -1151,7 +1155,7 @@ def _clean_rss_feeds(value: Any) -> list[str]:
             continue
         if urlparse(url).scheme.lower() not in {"http", "https"}:
             continue
-        feeds.append(url)
+        feeds.append(_normalize_feed_url(url))
     return _dedupe_strings(feeds)
 
 
